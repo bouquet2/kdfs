@@ -17,6 +17,7 @@ on:
       - go.sum
       - "build/**/Dockerfile"
       - "charts/**"
+  workflow_dispatch:
 
 jobs:
   test:
@@ -27,6 +28,10 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - name: Install controller-gen
+        run: go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+      - name: Generate deepcopy
+        run: make generate
       - name: Build
         run: go build ./...
       - name: Test
@@ -34,7 +39,7 @@ jobs:
 
   build-images:
     needs: [test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/build-images.yml
     with:
       tag: dev
