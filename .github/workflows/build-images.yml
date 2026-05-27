@@ -52,8 +52,7 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           tags: ${{ env.IMAGE_REPO }}/kdfs-spdk
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=kdfs-spdk-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=kdfs-spdk-${{ matrix.arch }}
+          no-cache: true
       - name: Export digest
         run: |
           mkdir -p "${{ runner.temp }}/digests"
