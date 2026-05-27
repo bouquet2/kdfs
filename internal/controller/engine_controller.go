@@ -52,7 +52,7 @@ func (r *EngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if engine.Status.PodRef == nil {
 		if !ready {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 		allowedHosts := r.allowedHosts(ctx, engine.Spec.NodeID)
 		pod := EnginePodFor(engine, allowedHosts)
@@ -65,24 +65,24 @@ func (r *EngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		engine.Status.PodRef = &storagev1alpha1.PodReference{Name: pod.Name, Namespace: pod.Namespace}
 		engine.Status.Phase = storagev1alpha1.EnginePhasePending
 		engine.Status.Conditions = statusutil.SetTrue(engine.Status.Conditions, storagev1alpha1.EngineConditionPodScheduled, "PodCreated", "engine pod was created")
-		return ctrl.Result{Requeue: true}, r.Status().Update(ctx, engine)
+		return ctrl.Result{}, r.Status().Update(ctx, engine)
 	}
 
 	if !ready {
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 	podIP, podExists, podReady := r.getEnginePodInfo(ctx, engine)
 	if !podExists {
 		engine.Status.PodRef = nil
 		engine.Status.Phase = ""
-		return ctrl.Result{Requeue: true}, r.Status().Update(ctx, engine)
+		return ctrl.Result{}, r.Status().Update(ctx, engine)
 	}
 	if !podReady {
 		engine.Status.Phase = storagev1alpha1.EnginePhasePending
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 	if podIP == "" {
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 	}
 	statusClient := r.SidecarStatusClient
 	if statusClient == nil {
@@ -90,10 +90,10 @@ func (r *EngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	status, err := statusClient.GetStatus(ctx, podIP)
 	if err != nil {
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 	if err := validateEngineSidecarStatus(status); err != nil {
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 	engine.Status.Endpoint = status.Endpoint
 	engine.Status.SubsystemNQN = status.SubsystemNQN
@@ -104,7 +104,7 @@ func (r *EngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			engineLogger.Warn().Err(err).Str("engine", engine.Name).Msg("reconfigure failed, will retry")
 			engine.Status.Phase = storagev1alpha1.EnginePhaseDegraded
 			engine.Status.Conditions = statusutil.SetTrue(engine.Status.Conditions, storagev1alpha1.EngineConditionSPDKStarted, "Reconfiguring", "replica scaling in progress")
-			return ctrl.Result{Requeue: true}, r.Status().Update(ctx, engine)
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, r.Status().Update(ctx, engine)
 		}
 	}
 	engine.Status.LastReplicasHash = currentHash

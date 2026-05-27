@@ -8,6 +8,7 @@ import (
 	storagev1alpha1 "github.com/bouquet2/kdfs/api/v1alpha1"
 	"github.com/bouquet2/kdfs/internal/agent"
 	statusutil "github.com/bouquet2/kdfs/internal/status"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,7 +61,7 @@ func (r *ReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		if pod == nil || pod.Status.PodIP == "" {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 		statusClient := r.SidecarStatusClient
 		if statusClient == nil {
@@ -68,10 +69,10 @@ func (r *ReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		status, err := statusClient.GetStatus(ctx, pod.Status.PodIP)
 		if err != nil {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 		if err := validateReplicaSidecarStatus(status); err != nil {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 		replica.Status.NQN = status.ReplicaNQN
 		replica.Status.Endpoint = status.Endpoint
@@ -84,6 +85,13 @@ func (r *ReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, r.Status().Update(ctx, replica)
 }
 
+func (r *ReplicaReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&storagev1alpha1.Replica{}).
+		Owns(&corev1.Pod{}).
+		Complete(r)
+}
+
 func replicaIndexFromName(name string) int {
 	var i int
 	parts := strings.Split(name, "-")
@@ -94,8 +102,4 @@ func replicaIndexFromName(name string) int {
 		}
 	}
 	return 0
-}
-
-func (r *ReplicaReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&storagev1alpha1.Replica{}).Complete(r)
 }

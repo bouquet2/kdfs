@@ -56,7 +56,7 @@ func (r *VolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		volume.Status.EngineRef = &storagev1alpha1.NamespacedObjectReference{Name: names.EngineName(volume.Name), Namespace: volume.Namespace}
 		volume.Status.Phase = storagev1alpha1.VolumePhaseCreating
 		volume.Status.Conditions = statusutil.SetTrue(volume.Status.Conditions, storagev1alpha1.VolumeConditionScheduled, "ChildrenCreated", "engine and replicas were created")
-		return ctrl.Result{Requeue: true}, r.Status().Update(ctx, volume)
+		return ctrl.Result{}, r.Status().Update(ctx, volume)
 	}
 
 	ready, err := r.childrenReady(ctx, volume)
@@ -72,7 +72,7 @@ func (r *VolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	engine := &storagev1alpha1.Engine{}
 	if err := r.Get(ctx, types.NamespacedName{Name: names.EngineName(volume.Name), Namespace: volume.Namespace}, engine); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 		return ctrl.Result{}, err
 	}
@@ -84,7 +84,7 @@ func (r *VolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if err := r.ensureScale(ctx, volume, engine); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 	if !ready {
 		healed, requeueAfter, healErr := r.healReplicas(ctx, volume, engine)
@@ -92,12 +92,12 @@ func (r *VolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, healErr
 		}
 		if healed {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{}, nil
 		}
 		if requeueAfter > 0 {
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	return ctrl.Result{}, nil
