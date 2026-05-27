@@ -59,7 +59,7 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-kdfs-spdk-${{ matrix.arch }}
           path: ${{ runner.temp }}/digests/*
@@ -137,7 +137,7 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-kdfs-spdk-init-${{ matrix.arch }}
           path: ${{ runner.temp }}/digests/*
@@ -219,7 +219,7 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-kdfs-${{ matrix.component }}-${{ matrix.arch }}
           path: ${{ runner.temp }}/digests/*
