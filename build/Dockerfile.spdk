@@ -33,9 +33,12 @@ ARG TARGETARCH
 
 # Build SPDK/DPDK for a generic ARM baseline on arm64 so the image runs
 # on nodes that do not expose host-specific features like SVE, while
-# keeping the native configure path on amd64 builds.
+# keeping the native configure path on amd64 builds. SPDK forwards
+# --target-arch to DPDK's cpu_instruction_set, but native arm64 runners can
+# still skip DPDK's generic platform path, so force platform=generic too.
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       target_arch='--target-arch=armv8-a'; \
+      sed -i '/DPDK_OPTS += -Dcpu_instruction_set=$(TARGET_ARCHITECTURE)/i DPDK_OPTS += -Dplatform=generic' dpdkbuild/Makefile; \
     else \
       target_arch=''; \
     fi \
