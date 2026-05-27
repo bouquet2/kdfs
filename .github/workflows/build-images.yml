@@ -22,56 +22,160 @@ permissions:
   contents: read
   packages: write
 
+env:
+  IMAGE_REPO: ${{ inputs.registry }}/${{ github.repository }}
+
 jobs:
   spdk:
-    runs-on: ubuntu-latest
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
+    if: inputs.push
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v6
       - name: Log in to registry
-        if: inputs.push
         uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build SPDK base
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build SPDK base by digest
         id: build
-        uses: ./.github/actions/docker-build
+        uses: docker/build-push-action@v7
         with:
-          image-name: kdfs-spdk
-          tag: ${{ inputs.tag }}
-          dockerfile: build/Dockerfile.spdk
-          push: ${{ inputs.push && 'true' || 'false' }}
+          context: .
+          file: build/Dockerfile.spdk
+          platforms: linux/${{ matrix.arch }}
+          tags: ${{ env.IMAGE_REPO }}/kdfs-spdk
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=kdfs-spdk-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=kdfs-spdk-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-kdfs-spdk-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  spdk-manifest:
+    if: inputs.push
+    needs: [spdk]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-kdfs-spdk-*
+          merge-multiple: true
+      - name: Log in to registry
+        uses: docker/login-action@v4
+        with:
           registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Publish SPDK manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_REPO }}/kdfs-spdk:${{ inputs.tag }} \
+            $(printf '${{ env.IMAGE_REPO }}/kdfs-spdk@sha256:%s ' *)
 
   spdk-init:
+    if: inputs.push
     needs: [spdk]
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v6
+      - name: Download SPDK digest
+        uses: actions/download-artifact@v4
+        with:
+          name: digests-kdfs-spdk-${{ matrix.arch }}
+          path: ${{ runner.temp }}/spdk-digest
+      - name: Capture SPDK digest
+        run: |
+          set -- "${{ runner.temp }}/spdk-digest"/*
+          echo "SPDK_DIGEST=${1##*/}" >> "$GITHUB_ENV"
       - name: Log in to registry
-        if: inputs.push
         uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build SPDK init
-        uses: ./.github/actions/docker-build
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build SPDK init by digest
+        id: build
+        uses: docker/build-push-action@v7
         with:
-          image-name: kdfs-spdk-init
-          tag: ${{ inputs.tag }}
-          dockerfile: build/spdk-init/Dockerfile
-          push: ${{ inputs.push && 'true' || 'false' }}
-          registry: ${{ inputs.registry }}
+          context: .
+          file: build/spdk-init/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          tags: ${{ env.IMAGE_REPO }}/kdfs-spdk-init
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=kdfs-spdk-init-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=kdfs-spdk-init-${{ matrix.arch }}
           build-contexts: |
-            kdfs-spdk:dev=docker-image://${{ inputs.registry }}/${{ github.repository }}/kdfs-spdk:${{ inputs.tag }}
+            kdfs-spdk:dev=docker-image://${{ env.IMAGE_REPO }}/kdfs-spdk@sha256:${{ env.SPDK_DIGEST }}
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-kdfs-spdk-init-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  spdk-init-manifest:
+    if: inputs.push
+    needs: [spdk-init]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-kdfs-spdk-init-*
+          merge-multiple: true
+      - name: Log in to registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Publish SPDK init manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_REPO }}/kdfs-spdk-init:${{ inputs.tag }} \
+            $(printf '${{ env.IMAGE_REPO }}/kdfs-spdk-init@sha256:%s ' *)
 
   go:
-    runs-on: ubuntu-latest
+    if: inputs.push
     strategy:
+      fail-fast: false
       matrix:
         component:
           - controller-manager
@@ -80,6 +184,8 @@ jobs:
           - sidecar
           - dashboard
           - nfs-sidecar
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v6
       - name: Set up Go
@@ -91,20 +197,72 @@ jobs:
       - name: Generate deepcopy
         run: make generate
       - name: Log in to registry
-        if: inputs.push
         uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build ${{ matrix.component }}
-        uses: ./.github/actions/docker-build
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build ${{ matrix.component }} by digest
+        id: build
+        uses: docker/build-push-action@v7
         with:
-          image-name: kdfs-${{ matrix.component }}
-          tag: ${{ inputs.tag }}
-          dockerfile: build/${{ matrix.component }}/Dockerfile
-          push: ${{ inputs.push && 'true' || 'false' }}
+          context: .
+          file: build/${{ matrix.component }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          tags: ${{ env.IMAGE_REPO }}/kdfs-${{ matrix.component }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=kdfs-${{ matrix.component }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=kdfs-${{ matrix.component }}-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-kdfs-${{ matrix.component }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  go-manifests:
+    if: inputs.push
+    needs: [go]
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - controller-manager
+          - csi-plugin
+          - node-agent
+          - sidecar
+          - dashboard
+          - nfs-sidecar
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-kdfs-${{ matrix.component }}-*
+          merge-multiple: true
+      - name: Log in to registry
+        uses: docker/login-action@v4
+        with:
           registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Publish ${{ matrix.component }} manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_REPO }}/kdfs-${{ matrix.component }}:${{ inputs.tag }} \
+            $(printf '${{ env.IMAGE_REPO }}/kdfs-${{ matrix.component }}@sha256:%s ' *)
 
   helm:
     runs-on: ubuntu-latest
