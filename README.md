@@ -17,14 +17,35 @@ It primarily uses NVMe-oF (RWO, ROX, RWOP) but also has NFS for RWX as there is 
 
 ## Installation
 
+From the local chart in this repository:
+
 ```bash
 helm install kdfs charts/kdfs --namespace kdfs --create-namespace
+```
+
+From the published OCI chart on GHCR:
+
+```bash
+helm install kdfs oci://ghcr.io/bouquet2/kdfs/kdfs \
+  --version 0.1.0 \
+  --namespace kdfs \
+  --create-namespace
 ```
 
 To override the NQN authority:
 
 ```bash
 helm install kdfs charts/kdfs \
+  --namespace kdfs \
+  --create-namespace \
+  --set config.nqnAuthority=nqn.2026-05.example.com
+```
+
+The same override works with the OCI chart:
+
+```bash
+helm install kdfs oci://ghcr.io/bouquet2/kdfs/kdfs \
+  --version 0.1.0 \
   --namespace kdfs \
   --create-namespace \
   --set config.nqnAuthority=nqn.2026-05.example.com
