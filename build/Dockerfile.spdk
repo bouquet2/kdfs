@@ -30,11 +30,11 @@ RUN git clone --depth 1 --branch v24.09 https://github.com/spdk/spdk.git /spdk-s
 WORKDIR /spdk-src
 RUN git submodule update --init --depth 1
 
-# Build DPDK for a generic CPU target so the image runs on arm64
-# nodes that do not expose host-specific features like SVE.
-ENV RTE_MACHINE=generic
+# Build SPDK/DPDK for a generic ARM baseline so the image runs on
+# arm64 nodes that do not expose host-specific features like SVE.
 
 RUN ./configure \
+    --target-arch=armv8-a \
     --without-vhost \
     --without-virtio \
     --without-fuse \
