@@ -19,7 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"github.com/bouquet2/kdfs/internal/names"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 var newReconfigureHTTPClient = func() *http.Client {
@@ -121,35 +123,79 @@ func (r *EngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 func (r *EngineReconciler) replicaStatus(ctx context.Context, engine *storagev1alpha1.Engine) (bool, error) {
+	allReady := true
+	specChanged := false
 	for i := range engine.Spec.Replicas {
 		rep := &storagev1alpha1.Replica{}
 		if err := r.Get(ctx, types.NamespacedName{Name: engine.Spec.Replicas[i].Name, Namespace: engine.Namespace}, rep); err != nil {
 			return false, client.IgnoreNotFound(err)
 		}
-		if rep.Status.Phase != storagev1alpha1.ReplicaPhaseRunning {
-			return false, nil
-		}
-		if rep.Status.NQN == "" {
-			return false, nil
-		}
+
 		pod := r.getReplicaPod(ctx, rep)
-		if pod == nil {
-			return false, nil
+		if pod != nil && pod.Spec.NodeName != "" {
+			isLocal := pod.Spec.NodeName == engine.Spec.NodeID
+			if engine.Spec.Replicas[i].IsLocal != isLocal {
+				engine.Spec.Replicas[i].IsLocal = isLocal
+				specChanged = true
+			}
 		}
+
+		if rep.Status.Phase != storagev1alpha1.ReplicaPhaseRunning || rep.Status.NQN == "" || pod == nil {
+			allReady = false
+			continue
+		}
+
 		host, port, err := network.SplitEndpoint(rep.Status.Endpoint)
 		if err != nil {
 			return false, err
 		}
-		engine.Spec.Replicas[i].NQN = rep.Status.NQN
-		engine.Spec.Replicas[i].Address = host
-		engine.Spec.Replicas[i].IsLocal = pod.Spec.NodeName == engine.Spec.NodeID
-		engine.Spec.Replicas[i].Port = port
+		if engine.Spec.Replicas[i].NQN != rep.Status.NQN || engine.Spec.Replicas[i].Address != host || engine.Spec.Replicas[i].Port != port {
+			engine.Spec.Replicas[i].NQN = rep.Status.NQN
+			engine.Spec.Replicas[i].Address = host
+			engine.Spec.Replicas[i].Port = port
+			specChanged = true
+		}
 	}
-	return true, nil
+	if specChanged {
+		if err := r.Update(ctx, engine); err != nil {
+			return false, err
+		}
+	}
+	return allReady, nil
 }
 
 func (r *EngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&storagev1alpha1.Engine{}).Owns(&corev1.Pod{}).Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&storagev1alpha1.Engine{}).
+		Owns(&corev1.Pod{}).
+		Watches(&corev1.Event{}, handler.EnqueueRequestsFromMapFunc(r.mapEventToEngine)).
+		Complete(r)
+}
+
+func (r *EngineReconciler) mapEventToEngine(ctx context.Context, obj client.Object) []ctrl.Request {
+	event, ok := obj.(*corev1.Event)
+	if !ok {
+		return nil
+	}
+	if event.Reason != "Scheduled" || event.InvolvedObject.Kind != "Pod" {
+		return nil
+	}
+	podName := event.InvolvedObject.Name
+	if !strings.HasSuffix(podName, "-pod") {
+		return nil
+	}
+	// Replica pod names are volume-replica-index-pod
+	parts := strings.Split(podName, "-replica-")
+	if len(parts) < 2 {
+		return nil
+	}
+	volumeName := parts[0]
+	return []ctrl.Request{
+		{NamespacedName: types.NamespacedName{
+			Name:      names.EngineName(volumeName),
+			Namespace: event.InvolvedObject.Namespace,
+		}},
+	}
 }
 
 func (r *EngineReconciler) triggerReconfigure(ctx context.Context, podIP string, replicas []storagev1alpha1.ReplicaAttachment) error {

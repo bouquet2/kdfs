@@ -15,7 +15,7 @@ func (r *EngineReconciler) getReplicaPod(ctx context.Context, replica *storagev1
 	pods := &corev1.PodList{}
 	r.List(ctx, pods, client.InNamespace(replica.Namespace), client.MatchingLabels{"kdfs.krea.to/mode": "replica"})
 	for _, pod := range pods.Items {
-		if pod.Name == replica.Name+"-pod" && pod.Status.PodIP != "" {
+		if pod.Name == replica.Name+"-pod" {
 			return &pod
 		}
 	}
