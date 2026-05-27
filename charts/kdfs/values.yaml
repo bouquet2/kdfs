@@ -1,18 +1,18 @@
 images:
   controllerManager:
-    repository: kdfs-controller-manager
+    repository: ghcr.io/bouquet2/kdfs/kdfs-controller-manager
     tag: dev
   csiPlugin:
-    repository: kdfs-csi-plugin
+    repository: ghcr.io/bouquet2/kdfs/kdfs-csi-plugin
     tag: dev
   nodeAgent:
-    repository: kdfs-node-agent
+    repository: ghcr.io/bouquet2/kdfs/kdfs-node-agent
     tag: dev
   dashboard:
-    repository: kdfs-dashboard
+    repository: ghcr.io/bouquet2/kdfs/kdfs-dashboard
     tag: dev
   spdkInit:
-    repository: kdfs-spdk-init
+    repository: ghcr.io/bouquet2/kdfs/kdfs-spdk-init
     tag: dev
   csiProvisioner:
     repository: registry.k8s.io/sig-storage/csi-provisioner
