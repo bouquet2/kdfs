@@ -74,7 +74,6 @@ spec:
             - --no-huge
             - -s
             - "1024"
-            - --iova-mode=va
           volumeMounts:
             - name: spdk-socket
               mountPath: /var/tmp

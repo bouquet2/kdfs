@@ -111,7 +111,7 @@ func spdkPod(name, namespace, nodeName, spdkContainer, mode string, sidecarEnv [
 				{Name: "spdk-socket", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 			},
 			Containers: []corev1.Container{
-				{Name: spdkContainer, Image: PodImages.SPDK, Args: []string{"--no-huge", "-s", "1024", "--iova-mode=va", "-r", "/var/tmp/spdk.sock"}, SecurityContext: &corev1.SecurityContext{Privileged: privileged}, VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}, {Name: "spdk-socket", MountPath: "/var/tmp"}}},
+				{Name: spdkContainer, Image: PodImages.SPDK, Args: []string{"--no-huge", "-s", "1024", "-r", "/var/tmp/spdk.sock"}, SecurityContext: &corev1.SecurityContext{Privileged: privileged}, VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}, {Name: "spdk-socket", MountPath: "/var/tmp"}}},
 				{Name: "sidecar", Image: PodImages.Sidecar, Args: []string{"--mode", mode}, Env: sidecarEnv, VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}, {Name: "spdk-socket", MountPath: "/var/tmp"}}},
 			},
 		},
