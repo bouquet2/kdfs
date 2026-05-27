@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libisal-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth 1 --branch v24.09 https://github.com/spdk/spdk.git /spdk-src
+RUN git clone --depth 1 --branch v26.01 https://github.com/spdk/spdk.git /spdk-src
 WORKDIR /spdk-src
 RUN git submodule update --init --depth 1
 ARG TARGETARCH
