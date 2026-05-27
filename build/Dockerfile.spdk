@@ -1,0 +1,83 @@
+FROM ubuntu:noble AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    ca-certificates \
+    pkg-config \
+    libtool \
+    automake \
+    autoconf \
+    meson \
+    ninja-build \
+    python3 \
+    python3-pip \
+    python3-setuptools \
+    python3-pyelftools \
+    libnuma-dev \
+    libpciaccess-dev \
+    libssl-dev \
+    libaio-dev \
+    libcunit1-dev \
+    libjson-c-dev \
+    uuid-dev \
+    nasm \
+    help2man \
+    libisal-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 --branch v24.09 https://github.com/spdk/spdk.git /spdk-src
+WORKDIR /spdk-src
+RUN git submodule update --init --depth 1
+
+RUN ./configure \
+    --without-vhost \
+    --without-virtio \
+    --without-fuse \
+    --without-rbd \
+    --without-rdma \
+    --without-crypto \
+    --without-iscsi-initiator \
+    --without-vfio-user \
+    --without-ocf \
+    --without-xnvme \
+    --without-nvme-cuse \
+    --disable-tests \
+    --disable-unit-tests \
+    --disable-examples
+
+RUN echo "all:" > app/spdk_top/Makefile && echo "clean:" >> app/spdk_top/Makefile
+
+RUN make -j$(nproc) 
+
+RUN mkdir -p /spdk-out/bin /spdk-out/lib /spdk-out/scripts && \
+    cp build/bin/nvmf_tgt /spdk-out/bin/ && \
+    cp -r build/lib /spdk-out/
+
+FROM ubuntu:noble
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnuma1 \
+    libssl3t64 \
+    libaio1t64 \
+    libjson-c5 \
+    libcunit1 \
+    libpciaccess0 \
+    openssl \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /usr/lib/ssl && printf "[openssl_init]\nproviders = provider_sect\n\n[provider_sect]\ndefault = default_sect\n\n[default_sect]\nactivate = 1\n" > /usr/lib/ssl/openssl.cnf
+
+COPY --from=builder /spdk-out/bin /usr/local/bin/
+COPY --from=builder /spdk-out/lib /usr/local/lib/
+COPY --from=builder /spdk-out/scripts /usr/local/share/spdk/scripts/
+RUN mkdir -p /usr/local/share/spdk/python/ && true
+
+ENV LD_LIBRARY_PATH=/usr/local/lib
+ENV PATH="/usr/local/bin:${PATH}"
+
+RUN mkdir -p /var/tmp && chmod 1777 /var/tmp
+
+EXPOSE 4420 4421
+
+ENTRYPOINT ["/usr/local/bin/nvmf_tgt"]

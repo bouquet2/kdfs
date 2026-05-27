@@ -1,0 +1,43 @@
+{{define "stats"}}
+<div class="grid" style="margin-bottom:1.5rem">
+  <div>
+    <h5 style="margin-bottom:0.25rem">Volumes</h5>
+    <p style="font-size:1.5rem;margin:0"><strong>{{.Stats.TotalVolumes}}</strong></p>
+    <small>{{.Stats.ReadyVolumes}} ready</small>
+  </div>
+  <div>
+    <h5 style="margin-bottom:0.25rem">Provisioned</h5>
+    <p style="font-size:1.5rem;margin:0"><strong>{{.Stats.TotalSizeGi}}</strong></p>
+    <small>{{.Stats.TotalVolumes}} volumes</small>
+  </div>
+  <div>
+    <h5 style="margin-bottom:0.25rem">PVCs</h5>
+    <p style="font-size:1.5rem;margin:0"><strong>{{.Stats.TotalPVCCount}}</strong></p>
+    <small>{{.Stats.TotalPVCUsageGi}} used</small>
+  </div>
+  <div>
+    <h5 style="margin-bottom:0.25rem">Nodes</h5>
+    <p style="font-size:1.5rem;margin:0"><strong>{{.Stats.NodeCount}}</strong></p>
+    <small>{{len .Stats.Nodes}} with volumes</small>
+  </div>
+</div>
+{{if .Stats.Nodes}}
+<details style="margin-bottom:1rem">
+  <summary>Node Breakdown</summary>
+  <table>
+    <thead>
+      <tr><th>Node</th><th>Replicas</th><th>Provisioned</th></tr>
+    </thead>
+    <tbody>
+      {{range .Stats.Nodes}}
+      <tr>
+        <td>{{.Name}}</td>
+        <td>{{.ReplicaCount}}</td>
+        <td>{{.SizeGi}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</details>
+{{end}}
+{{end}}

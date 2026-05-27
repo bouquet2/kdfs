@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kdfs
+description: KDFS storage system
+type: application
+version: 0.1.0
+appVersion: "dev"

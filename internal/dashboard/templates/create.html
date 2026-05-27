@@ -1,0 +1,27 @@
+{{define "create"}}
+<dialog open>
+  <article>
+    <header>
+      <h2>Create Volume</h2>
+    </header>
+    <form hx-post="/volumes/create" hx-target="#main" hx-swap="outerHTML">
+      <label>
+        Name
+        <input type="text" name="name" required placeholder="my-volume">
+      </label>
+      <label>
+        Size (GiB)
+        <input type="number" name="size" required value="1" min="1">
+      </label>
+      <label>
+        Replica Count
+        <input type="text" name="replicaCount" value="auto" placeholder="auto or number">
+      </label>
+      <footer>
+        <button type="button" onclick="this.closest('dialog').remove()" class="secondary">Cancel</button>
+        <button type="submit">Create</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+{{end}}

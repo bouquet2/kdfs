@@ -1,0 +1,117 @@
+name: Build KDFS Images
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+        description: Image tag (e.g. dev, v0.1.0)
+      push:
+        required: false
+        type: boolean
+        default: true
+        description: Whether to push images to the registry
+      registry:
+        required: false
+        type: string
+        default: ghcr.io
+        description: Container registry
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  spdk:
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Log in to registry
+        if: inputs.push
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build SPDK base
+        id: build
+        uses: ./.github/actions/docker-build
+        with:
+          image-name: kdfs-spdk
+          tag: ${{ inputs.tag }}
+          dockerfile: build/Dockerfile.spdk
+          push: ${{ inputs.push && 'true' || 'false' }}
+          registry: ${{ inputs.registry }}
+
+  spdk-init:
+    needs: [spdk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Log in to registry
+        if: inputs.push
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build SPDK init
+        uses: ./.github/actions/docker-build
+        with:
+          image-name: kdfs-spdk-init
+          tag: ${{ inputs.tag }}
+          dockerfile: build/spdk-init/Dockerfile
+          push: ${{ inputs.push && 'true' || 'false' }}
+          registry: ${{ inputs.registry }}
+          build-contexts: |
+            kdfs-spdk:dev=docker-image://${{ inputs.registry }}/${{ github.repository }}/kdfs-spdk:${{ inputs.tag }}
+
+  go:
+    needs: [spdk]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - controller-manager
+          - csi-plugin
+          - node-agent
+          - sidecar
+          - dashboard
+          - nfs-sidecar
+    steps:
+      - uses: actions/checkout@v6
+      - name: Log in to registry
+        if: inputs.push
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build ${{ matrix.component }}
+        uses: ./.github/actions/docker-build
+        with:
+          image-name: kdfs-${{ matrix.component }}
+          tag: ${{ inputs.tag }}
+          dockerfile: build/${{ matrix.component }}/Dockerfile
+          push: ${{ inputs.push && 'true' || 'false' }}
+          registry: ${{ inputs.registry }}
+
+  helm:
+    needs: [spdk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+      - name: Log in to registry
+        if: inputs.push
+        run: |
+          helm registry login ${{ inputs.registry }} -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+      - name: Push Helm chart as OCI artifact
+        if: inputs.push
+        run: |
+          helm package charts/kdfs --destination /tmp/helm-charts --version ${{ inputs.tag }} --app-version ${{ inputs.tag }}
+          helm push /tmp/helm-charts/kdfs-*.tgz oci://${{ inputs.registry }}/${{ github.repository }}

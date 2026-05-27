@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kdfs-csi-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kdfs.labels" . | nindent 4 }}
+    app: kdfs-csi-controller
+spec:
+  replicas: {{ .Values.csiController.replicaCount }}
+  selector:
+    matchLabels:
+      app: kdfs-csi-controller
+  template:
+    metadata:
+      labels:
+        app: kdfs-csi-controller
+    spec:
+      serviceAccountName: kdfs-controller-manager
+      containers:
+        - name: csi-provisioner
+          image: {{ include "kdfs.image" .Values.images.csiProvisioner }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --feature-gates=Topology=true
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-attacher
+          image: {{ include "kdfs.image" .Values.images.csiAttacher }}
+          args:
+            - --csi-address=/csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: livenessprobe
+          image: {{ include "kdfs.image" .Values.images.livenessProbe }}
+          args:
+            - --csi-address=/csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: kdfs-csi-plugin
+          image: {{ include "kdfs.image" .Values.images.csiPlugin }}
+          args:
+            - --csi-address=unix:///csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+      volumes:
+        - name: socket-dir
+          emptyDir: {}

@@ -1,0 +1,62 @@
+images:
+  controllerManager:
+    repository: kdfs-controller-manager
+    tag: dev
+  csiPlugin:
+    repository: kdfs-csi-plugin
+    tag: dev
+  nodeAgent:
+    repository: kdfs-node-agent
+    tag: dev
+  dashboard:
+    repository: kdfs-dashboard
+    tag: dev
+  spdkInit:
+    repository: kdfs-spdk-init
+    tag: dev
+  csiProvisioner:
+    repository: registry.k8s.io/sig-storage/csi-provisioner
+    tag: v5.1.0
+  csiAttacher:
+    repository: registry.k8s.io/sig-storage/csi-attacher
+    tag: v4.8.1
+  livenessProbe:
+    repository: registry.k8s.io/sig-storage/livenessprobe
+    tag: v2.15.0
+  nodeDriverRegistrar:
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    tag: v2.13.0
+
+controllerManager:
+  replicaCount: 1
+  leaderElection: false
+
+csiController:
+  replicaCount: 1
+
+config:
+  nqnAuthority: nqn.2026-05.krea.to
+  networkPolicy:
+    default:
+      bindAddress: podIP
+      advertiseAddress: podIP
+      preferredFamily: Auto
+    engine:
+      port: "4420"
+    replica:
+      port: "4421"
+
+dashboard:
+  enabled: true
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+
+storageClass:
+  enabled: true
+  name: kdfs
+  replicaCount: auto
+  allowVolumeExpansion: false
+  volumeBindingMode: WaitForFirstConsumer

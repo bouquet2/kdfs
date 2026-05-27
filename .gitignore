@@ -1,0 +1,10 @@
+.direnv/
+.superpowers/
+docs/superpowers
+bin/
+dist/
+result
+*.test
+coverage.out
+.DS_Store
+zz_generated.deepcopy.go

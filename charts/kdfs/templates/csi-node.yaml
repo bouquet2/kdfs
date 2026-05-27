@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kdfs-csi-node
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kdfs.labels" . | nindent 4 }}
+    app: kdfs-csi-node
+spec:
+  selector:
+    matchLabels:
+      app: kdfs-csi-node
+  template:
+    metadata:
+      labels:
+        app: kdfs-csi-node
+    spec:
+      serviceAccountName: kdfs-controller-manager
+      containers:
+        - name: node-driver-registrar
+          image: {{ include "kdfs.image" .Values.images.nodeDriverRegistrar }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/storage.krea.to/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+        - name: livenessprobe
+          image: {{ include "kdfs.image" .Values.images.livenessProbe }}
+          args:
+            - --csi-address=/csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: kdfs-csi-plugin
+          image: {{ include "kdfs.image" .Values.images.csiPlugin }}
+          securityContext:
+            privileged: true
+          args:
+            - --csi-address=unix:///csi/csi.sock
+            - --node-id=$(KUBE_NODE_NAME)
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NQN_AUTHORITY
+              valueFrom:
+                configMapKeyRef:
+                  name: kdfs-config
+                  key: nqnAuthority
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: spdk-socket
+              mountPath: /var/tmp
+            - name: dev
+              mountPath: /dev
+            - name: nvme-etc
+              mountPath: /etc/nvme
+            - name: kubelet-plugins
+              mountPath: /var/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+            - name: kubelet-pods
+              mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+        - name: spdk-init
+          image: {{ include "kdfs.image" .Values.images.spdkInit }}
+          securityContext:
+            privileged: true
+          args:
+            - --no-huge
+            - -s
+            - "1024"
+            - --iova-mode=va
+          volumeMounts:
+            - name: spdk-socket
+              mountPath: /var/tmp
+            - name: hugepages
+              mountPath: /dev/hugepages
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/storage.krea.to
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: DirectoryOrCreate
+        - name: spdk-socket
+          emptyDir: {}
+        - name: dev
+          hostPath:
+            path: /dev
+        - name: nvme-etc
+          hostPath:
+            path: /etc/nvme
+            type: DirectoryOrCreate
+        - name: hugepages
+          hostPath:
+            path: /dev/hugepages
+        - name: kubelet-plugins
+          hostPath:
+            path: /var/lib/kubelet/plugins
+            type: DirectoryOrCreate
+        - name: kubelet-pods
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate

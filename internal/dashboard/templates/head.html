@@ -1,0 +1,41 @@
+{{define "head"}}
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KDFS</title>
+<script>
+  (function(){
+    var t = localStorage.getItem('kdfs-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+  function toggleTheme() {
+    var c = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', c);
+    localStorage.setItem('kdfs-theme', c);
+  }
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<script src="https://unpkg.com/htmx.org@2.0.3"></script>
+<style>
+  .status-green { color: #2a9d8f; }
+  .status-yellow { color: #e9c46a; }
+  .status-red { color: #e76f51; }
+  .status-grey { color: #aaa; }
+  .container { max-width: 1400px; }
+  table { width: 100%; }
+  table td { vertical-align: middle; }
+  .table-wrap { overflow-x: auto; }
+  @media (max-width: 768px) {
+    .container { padding: 0 0.5rem; }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    table { font-size: 0.85rem; }
+    nav ul { gap: 0.25rem; }
+    .hide-sm { display: none; }
+  }
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .hide-xs { display: none; }
+  }
+</style>
+</head>
+{{end}}

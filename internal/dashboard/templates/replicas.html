@@ -1,0 +1,35 @@
+{{define "replicas"}}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Node</th>
+      <th>Type</th>
+      <th>Status</th>
+      <th>NQN</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Replicas}}
+    <tr>
+      <td>{{.Name}}</td>
+      <td>{{.NodeID}}</td>
+      <td>{{if .IsLocal}}local{{else}}remote{{end}}</td>
+      <td><span class="status-{{phaseColor .Phase}}">{{.Phase}}</span></td>
+      <td><code>{{.NQN}}</code></td>
+      <td>
+        <button hx-post="/volumes/{{$.VolumeName}}/replicas/{{.Name}}/delete"
+                hx-confirm="Delete replica {{.Name}}?"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                style="background:#e76f51;border-color:#e76f51;padding:0.2rem 0.5rem;font-size:0.8rem">Del</button>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{if not .Replicas}}
+<p>No replicas found.</p>
+{{end}}
+{{end}}

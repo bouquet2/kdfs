@@ -1,0 +1,13 @@
+{{- if .Values.storageClass.enabled }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.name }}
+  labels:
+    {{- include "kdfs.labels" . | nindent 4 }}
+provisioner: storage.krea.to
+volumeBindingMode: {{ .Values.storageClass.volumeBindingMode }}
+allowVolumeExpansion: {{ .Values.storageClass.allowVolumeExpansion }}
+parameters:
+  replicaCount: {{ .Values.storageClass.replicaCount | quote }}
+{{- end }}

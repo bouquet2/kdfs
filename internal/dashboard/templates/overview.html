@@ -1,0 +1,14 @@
+{{define "overview"}}
+<table>
+  <tr><th>Name</th><td>{{.Volume.Name}}</td></tr>
+  <tr><th>Size</th><td>{{.Volume.Spec.Size}}</td></tr>
+  <tr><th>Node</th><td>{{.Volume.Spec.NodeID}}</td></tr>
+  <tr><th>Status</th><td><span class="status-{{phaseColor .Volume.Status.Phase}}">{{.Volume.Status.Phase}}</span></td></tr>
+  <tr><th>Replica Count</th><td>{{.ReplicaCount}}</td></tr>
+</table>
+<div style="margin-top:1rem;display:flex;gap:0.5rem">
+  <button hx-get="/volumes/{{.Volume.Name}}/scale-form" hx-target="#volume-scale" hx-swap="innerHTML" class="secondary">Scale</button>
+  <button hx-get="/volumes/{{.Volume.Name}}/delete-form" hx-target="#modal" hx-swap="innerHTML" class="secondary" style="color:#e76f51">Delete</button>
+</div>
+<div class="scale-form" id="volume-scale"></div>
+{{end}}

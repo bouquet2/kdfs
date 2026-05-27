@@ -1,0 +1,16 @@
+{{define "delete"}}
+<dialog open>
+  <article>
+    <header>
+      <h2>Delete Volume</h2>
+    </header>
+    <p>Are you sure you want to delete <strong>{{.Name}}</strong>? This will also remove all associated engines and replicas.</p>
+    <footer>
+      <button type="button" onclick="this.closest('dialog').remove()" class="secondary">Cancel</button>
+      <form hx-post="/volumes/{{.Name}}/delete" hx-target="#main" hx-swap="outerHTML" style="display:inline">
+        <button type="submit" style="background:#e76f51;border-color:#e76f51">Delete</button>
+      </form>
+    </footer>
+  </article>
+</dialog>
+{{end}}

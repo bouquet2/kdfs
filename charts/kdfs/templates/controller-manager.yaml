@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kdfs-controller-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kdfs.labels" . | nindent 4 }}
+    app: kdfs-controller-manager
+spec:
+  replicas: {{ .Values.controllerManager.replicaCount }}
+  selector:
+    matchLabels:
+      app: kdfs-controller-manager
+  template:
+    metadata:
+      labels:
+        app: kdfs-controller-manager
+    spec:
+      serviceAccountName: kdfs-controller-manager
+      containers:
+        - name: manager
+          image: {{ include "kdfs.image" .Values.images.controllerManager }}
+          args:
+            - --leader-elect={{ .Values.controllerManager.leaderElection }}
+          env:
+            - name: NQN_AUTHORITY
+              valueFrom:
+                configMapKeyRef:
+                  name: kdfs-config
+                  key: nqnAuthority
+          ports:
+            - containerPort: 8081
+              name: health

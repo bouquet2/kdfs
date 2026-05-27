@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kdfs-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kdfs.labels" . | nindent 4 }}
+data:
+  nqnAuthority: {{ .Values.config.nqnAuthority | quote }}
+  networkPolicy: {{ .Values.config.networkPolicy | toJson | quote }}

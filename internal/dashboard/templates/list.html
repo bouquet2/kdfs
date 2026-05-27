@@ -1,0 +1,54 @@
+{{define "list-row"}}
+<tr>
+  <td><a href="/volumes/{{.Name}}">{{.Name}}</a></td>
+  <td>{{.Spec.Size}}</td>
+  <td><span class="status-{{phaseColor .Status.Phase}}">{{.Status.Phase}}</span></td>
+  <td>{{.DisplayReplicaCount}}</td>
+  <td class="hide-xs">{{.Spec.NodeID}}</td>
+  <td class="hide-sm">{{ago .CreationTimestamp}}</td>
+  <td>
+    <a href="/volumes/{{.Name}}" role="button" class="outline">Details</a>
+  </td>
+</tr>
+{{end}}
+
+{{define "list-body"}}
+{{range .Volumes}}
+{{template "list-row" .}}
+{{end}}
+{{if not .Volumes}}
+<tr><td colspan="7">No volumes found.</td></tr>
+{{end}}
+{{end}}
+
+{{define "list"}}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+{{template "head" .}}
+<body>
+{{template "nav" .}}
+<main class="container" id="main">
+{{template "stats" .}}
+<div style="padding-top:1rem" class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Size</th>
+      <th>Status</th>
+      <th>Replicas</th>
+      <th class="hide-xs">Node</th>
+      <th class="hide-sm">Age</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody hx-get="/" hx-trigger="every 5s" hx-swap="outerHTML">
+    {{template "list-body" .}}
+  </tbody>
+</table>
+</div>
+</main>
+<div id="modal"></div>
+</body>
+</html>
+{{end}}

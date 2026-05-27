@@ -1,0 +1,44 @@
+{{define "nav"}}
+<nav class="container-fluid">
+    <ul>
+        <li>
+            <strong
+                ><a href="/" style="text-decoration: none; color: inherit"
+                    >KDFS</a
+                ></strong
+            >
+        </li>
+    </ul>
+    <ul>
+        <li>
+            <a
+                href="https://github.com/bouquet2/kdfs"
+                target="_blank"
+                class="contrast"
+                >Source</a
+            >
+        </li>
+        <li>
+            <button
+                hx-get="/volumes/new"
+                hx-target="#modal"
+                hx-swap="innerHTML"
+                class="outline"
+                style="width: auto"
+            >
+                New Volume
+            </button>
+        </li>
+        <li>
+            <button
+                id="theme-toggle"
+                class="outline"
+                style="width: auto"
+                onclick="toggleTheme()"
+            >
+                &#9788;
+            </button>
+        </li>
+    </ul>
+</nav>
+{{end}}

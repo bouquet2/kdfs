@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kdfs-node-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kdfs.labels" . | nindent 4 }}
+    app: kdfs-node-agent
+spec:
+  selector:
+    matchLabels:
+      app: kdfs-node-agent
+  template:
+    metadata:
+      labels:
+        app: kdfs-node-agent
+    spec:
+      serviceAccountName: kdfs-controller-manager
+      containers:
+        - name: node-agent
+          image: {{ include "kdfs.image" .Values.images.nodeAgent }}
+          ports:
+            - containerPort: 9808
+              name: http
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kdfs
+      volumes:
+        - name: data
+          hostPath:
+            path: /var/lib/kdfs
