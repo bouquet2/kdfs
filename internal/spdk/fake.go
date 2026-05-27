@@ -66,3 +66,18 @@ func (f *FakeClient) RemoveNamespace(ctx context.Context, nqn string, nsID int) 
 func (f *FakeClient) DestroyRAID(ctx context.Context, name string) error {
 	return f.record("DestroyRAID:" + name)
 }
+
+func (f *FakeClient) AddBaseBdev(ctx context.Context, raidName, baseBdev string) error {
+	return f.record("AddBaseBdev:" + raidName + ":" + baseBdev)
+}
+
+func (f *FakeClient) RemoveBaseBdev(ctx context.Context, raidName, baseBdev string) error {
+	return f.record("RemoveBaseBdev:" + raidName + ":" + baseBdev)
+}
+
+func (f *FakeClient) GetRAIDInfo(ctx context.Context, name string) (map[string]any, error) {
+	if err := f.record("GetRAIDInfo:" + name); err != nil {
+		return nil, err
+	}
+	return map[string]any{}, nil
+}
