@@ -21,6 +21,7 @@ const (
 	VolumeConditionReplicasHealing = "ReplicasHealing"
 )
 
+// +kubebuilder:object:generate=true
 type ReplicaHealth struct {
 	Name            string      `json:"name"`
 	NodeID          string      `json:"nodeID"`
