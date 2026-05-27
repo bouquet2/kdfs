@@ -70,7 +70,6 @@ jobs:
             kdfs-spdk:dev=docker-image://${{ inputs.registry }}/${{ github.repository }}/kdfs-spdk:${{ inputs.tag }}
 
   go:
-    needs: [spdk]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -83,6 +82,14 @@ jobs:
           - nfs-sidecar
     steps:
       - uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: Install controller-gen
+        run: go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+      - name: Generate deepcopy
+        run: make generate
       - name: Log in to registry
         if: inputs.push
         uses: docker/login-action@v4
@@ -100,7 +107,6 @@ jobs:
           registry: ${{ inputs.registry }}
 
   helm:
-    needs: [spdk]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -113,5 +119,5 @@ jobs:
       - name: Push Helm chart as OCI artifact
         if: inputs.push
         run: |
-          helm package charts/kdfs --destination /tmp/helm-charts --version ${{ inputs.tag }} --app-version ${{ inputs.tag }}
+          helm package charts/kdfs --destination /tmp/helm-charts --app-version ${{ inputs.tag }}
           helm push /tmp/helm-charts/kdfs-*.tgz oci://${{ inputs.registry }}/${{ github.repository }}
