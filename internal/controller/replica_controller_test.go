@@ -93,7 +93,7 @@ func TestReplicaReconcileRequeuesOnMalformedSidecarStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Requeue {
+	if !result.Requeue && result.RequeueAfter == 0 {
 		t.Fatalf("result = %#v, want requeue", result)
 	}
 
@@ -120,7 +120,7 @@ func TestReplicaReconcileRequeuesOnMalformedSidecarEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Requeue {
+	if !result.Requeue && result.RequeueAfter == 0 {
 		t.Fatalf("result = %#v, want requeue", result)
 	}
 }
@@ -136,7 +136,7 @@ func TestReplicaReconcileRequeuesOnEmptyPortSidecarEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Requeue {
+	if !result.Requeue && result.RequeueAfter == 0 {
 		t.Fatalf("result = %#v, want requeue", result)
 	}
 }

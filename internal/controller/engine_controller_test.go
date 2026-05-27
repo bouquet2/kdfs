@@ -99,7 +99,7 @@ func TestEngineReconcileKeepsPendingUntilPodReady(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Requeue {
+	if !result.Requeue && result.RequeueAfter == 0 {
 		t.Fatalf("expected requeue while engine pod is not ready, got %#v", result)
 	}
 	updated := &storagev1alpha1.Engine{}
@@ -240,7 +240,7 @@ func TestEngineReconcileRequeuesOnMalformedSidecarStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Requeue {
+	if !result.Requeue && result.RequeueAfter == 0 {
 		t.Fatalf("result = %#v, want requeue", result)
 	}
 }
@@ -266,7 +266,7 @@ func TestEngineReconcileRequeuesOnMalformedSidecarEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Requeue {
+	if !result.Requeue && result.RequeueAfter == 0 {
 		t.Fatalf("result = %#v, want requeue", result)
 	}
 }
@@ -292,7 +292,7 @@ func TestEngineReconcileRequeuesOnEmptyPortSidecarEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Requeue {
+	if !result.Requeue && result.RequeueAfter == 0 {
 		t.Fatalf("result = %#v, want requeue", result)
 	}
 }
