@@ -131,15 +131,20 @@ func (r *EngineReconciler) replicaStatus(ctx context.Context, engine *storagev1a
 			return false, client.IgnoreNotFound(err)
 		}
 
-		pod := r.getReplicaPod(ctx, rep)
-		if pod != nil && pod.Spec.NodeName != "" {
-			isLocal := pod.Spec.NodeName == engine.Spec.NodeID
-			if engine.Spec.Replicas[i].IsLocal != isLocal {
-				engine.Spec.Replicas[i].IsLocal = isLocal
-				specChanged = true
-			}
+		isLocal := rep.Spec.NodeID == engine.Spec.NodeID
+		if engine.Spec.Replicas[i].IsLocal != isLocal {
+			engine.Spec.Replicas[i].IsLocal = isLocal
+			specChanged = true
 		}
 
+		if isLocal {
+			if rep.Status.Phase != storagev1alpha1.ReplicaPhaseRunning {
+				allReady = false
+			}
+			continue
+		}
+
+		pod := r.getReplicaPod(ctx, rep)
 		if rep.Status.Phase != storagev1alpha1.ReplicaPhaseRunning || rep.Status.NQN == "" || pod == nil {
 			allReady = false
 			continue

@@ -34,8 +34,11 @@ func (r *ReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, err
 	}
-	if replica.Status.Phase == storagev1alpha1.ReplicaPhaseRunning {
-		return ctrl.Result{}, nil
+	if replica.Status.Phase == storagev1alpha1.ReplicaPhaseRunning && replica.Spec.Type == storagev1alpha1.ReplicaTypeRemote {
+		pod, err := r.replicaPod(ctx, replica)
+		if err == nil && pod != nil && pod.Status.PodIP != "" {
+			return ctrl.Result{}, nil
+		}
 	}
 	agentClient := r.Agent
 	if agentClient == nil && r.AgentFactory != nil {
@@ -78,6 +81,16 @@ func (r *ReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		replica.Status.NQN = status.ReplicaNQN
 		replica.Status.Endpoint = status.Endpoint
 		replica.Status.Conditions = statusutil.SetTrue(replica.Status.Conditions, storagev1alpha1.ReplicaConditionNVMFExported, "Exported", "remote replica is exported over NVMe-oF")
+	} else {
+		// Clean up pod if it exists (e.g. transitioned from Remote to Local)
+		pod, err := r.replicaPod(ctx, replica)
+		if err == nil && pod != nil {
+			if err := r.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+		}
+		replica.Status.NQN = ""
+		replica.Status.Endpoint = ""
 	}
 	replica.Status.Phase = storagev1alpha1.ReplicaPhaseRunning
 	replica.Status.BdevName = "aio0"

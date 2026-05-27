@@ -46,7 +46,7 @@ func TestVolumeReconcileCreatesEngineAndReplicas(t *testing.T) {
 	if err := c.Get(ctx, types.NamespacedName{Name: names.ReplicaName(volume.Name, 0), Namespace: volume.Namespace}, replica0); err != nil {
 		t.Fatalf("replica-0 not created: %v", err)
 	}
-	if replica0.Spec.Type != storagev1alpha1.ReplicaTypeRemote || replica0.Spec.NodeID != "worker-1" {
+	if replica0.Spec.Type != storagev1alpha1.ReplicaTypeLocal || replica0.Spec.NodeID != "worker-1" {
 		t.Fatalf("replica-0 spec = %#v", replica0.Spec)
 	}
 

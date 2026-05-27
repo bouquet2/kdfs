@@ -34,12 +34,16 @@ func (r *VolumeReconciler) scaleUp(ctx context.Context, volume *storagev1alpha1.
 		usedNodes[node] = true
 		replicaName := names.ReplicaName(volume.Name, nextIndex)
 		usedIndices[nextIndex] = true
+		replicaType := storagev1alpha1.ReplicaTypeRemote
+		if node == volume.Spec.NodeID {
+			replicaType = storagev1alpha1.ReplicaTypeLocal
+		}
 		replica := &storagev1alpha1.Replica{
 			ObjectMeta: metav1.ObjectMeta{Name: replicaName, Namespace: volume.Namespace, OwnerReferences: []metav1.OwnerReference{owner}},
 			Spec: storagev1alpha1.ReplicaSpec{
 				VolumeRef: storagev1alpha1.LocalObjectReference{Name: volume.Name},
 				NodeID:    node,
-				Type:      storagev1alpha1.ReplicaTypeRemote,
+				Type:      replicaType,
 				Size:      volume.Spec.Size,
 				DataPath:  names.DataPath(volume.Name),
 			},

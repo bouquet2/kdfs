@@ -77,6 +77,24 @@ func (r *VolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		return ctrl.Result{}, err
 	}
+
+	for i := range engine.Spec.Replicas {
+		ra := &engine.Spec.Replicas[i]
+		replica := &storagev1alpha1.Replica{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ra.Name, Namespace: volume.Namespace}, replica); err == nil {
+			expectedType := storagev1alpha1.ReplicaTypeRemote
+			if ra.NodeID == volume.Spec.NodeID {
+				expectedType = storagev1alpha1.ReplicaTypeLocal
+			}
+			if replica.Spec.Type != expectedType {
+				replica.Spec.Type = expectedType
+				if err := r.Update(ctx, replica); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+		}
+	}
+
 	desired, err := r.replicasForVolume(ctx, volume)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -110,12 +128,16 @@ func (r *VolumeReconciler) ensureChildren(ctx context.Context, volume *storagev1
 
 	for i, node := range nodes {
 		replicaName := names.ReplicaName(volume.Name, i)
+		replicaType := storagev1alpha1.ReplicaTypeRemote
+		if node == volume.Spec.NodeID {
+			replicaType = storagev1alpha1.ReplicaTypeLocal
+		}
 		replica := &storagev1alpha1.Replica{
 			ObjectMeta: metav1.ObjectMeta{Name: replicaName, Namespace: volume.Namespace, OwnerReferences: []metav1.OwnerReference{owner}},
 			Spec: storagev1alpha1.ReplicaSpec{
 				VolumeRef: storagev1alpha1.LocalObjectReference{Name: volume.Name},
 				NodeID:    node,
-				Type:      storagev1alpha1.ReplicaTypeRemote,
+				Type:      replicaType,
 				Size:      volume.Spec.Size,
 				DataPath:  names.DataPath(volume.Name),
 			},
