@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-kdfs-spdk-*
@@ -103,7 +103,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download SPDK digest
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: digests-kdfs-spdk-${{ matrix.arch }}
           path: ${{ runner.temp }}/spdk-digest
@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-kdfs-spdk-init-*
@@ -242,7 +242,7 @@ jobs:
           - nfs-sidecar
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-kdfs-${{ matrix.component }}-*
