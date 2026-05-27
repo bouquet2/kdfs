@@ -29,6 +29,15 @@ func TestEnginePodTemplate(t *testing.T) {
 	if pod.Spec.Containers[0].Name != "spdk-engine" || pod.Spec.Containers[2].Name != "nfs" {
 		t.Fatalf("containers = %#v", pod.Spec.Containers)
 	}
+	if pod.Spec.Containers[0].Image != "ghcr.io/bouquet2/kdfs/kdfs-spdk:dev" {
+		t.Fatalf("spdk image = %q", pod.Spec.Containers[0].Image)
+	}
+	if pod.Spec.Containers[1].Image != "ghcr.io/bouquet2/kdfs/kdfs-sidecar:dev" {
+		t.Fatalf("sidecar image = %q", pod.Spec.Containers[1].Image)
+	}
+	if pod.Spec.Containers[2].Image != "ghcr.io/bouquet2/kdfs/kdfs-nfs-sidecar:dev" {
+		t.Fatalf("nfs image = %q", pod.Spec.Containers[2].Image)
+	}
 	var kdfsReplicas string
 	for _, e := range pod.Spec.Containers[1].Env {
 		if e.Name == "KDFS_REPLICAS" {
@@ -62,6 +71,12 @@ func TestReplicaPodTemplate(t *testing.T) {
 	}
 	if pod.Spec.Containers[0].Name != "spdk-replica" {
 		t.Fatalf("container = %q", pod.Spec.Containers[0].Name)
+	}
+	if pod.Spec.Containers[0].Image != "ghcr.io/bouquet2/kdfs/kdfs-spdk:dev" {
+		t.Fatalf("spdk image = %q", pod.Spec.Containers[0].Image)
+	}
+	if pod.Spec.Containers[1].Image != "ghcr.io/bouquet2/kdfs/kdfs-sidecar:dev" {
+		t.Fatalf("sidecar image = %q", pod.Spec.Containers[1].Image)
 	}
 	var idx string
 	for _, e := range pod.Spec.Containers[1].Env {

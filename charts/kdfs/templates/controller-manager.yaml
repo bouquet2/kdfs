@@ -28,6 +28,12 @@ spec:
                 configMapKeyRef:
                   name: kdfs-config
                   key: nqnAuthority
+            - name: KDFS_SPDK_IMAGE
+              value: {{ include "kdfs.image" (dict "repository" "ghcr.io/bouquet2/kdfs/kdfs-spdk" "tag" .Values.images.spdkInit.tag) | quote }}
+            - name: KDFS_SIDECAR_IMAGE
+              value: {{ include "kdfs.image" (dict "repository" "ghcr.io/bouquet2/kdfs/kdfs-sidecar" "tag" .Values.images.controllerManager.tag) | quote }}
+            - name: KDFS_NFS_SIDECAR_IMAGE
+              value: {{ include "kdfs.image" (dict "repository" "ghcr.io/bouquet2/kdfs/kdfs-nfs-sidecar" "tag" .Values.images.controllerManager.tag) | quote }}
           ports:
             - containerPort: 8081
               name: health

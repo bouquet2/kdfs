@@ -11,6 +11,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type Images struct {
+	SPDK       string
+	Sidecar    string
+	NFSSidecar string
+}
+
+var PodImages = Images{
+	SPDK:       "ghcr.io/bouquet2/kdfs/kdfs-spdk:dev",
+	Sidecar:    "ghcr.io/bouquet2/kdfs/kdfs-sidecar:dev",
+	NFSSidecar: "ghcr.io/bouquet2/kdfs/kdfs-nfs-sidecar:dev",
+}
+
 func EnginePodFor(engine *storagev1alpha1.Engine, allowedHosts []string) *corev1.Pod {
 	volumeName := engine.Spec.VolumeRef.Name
 	replicasJSON, _ := json.Marshal(engine.Spec.Replicas)
@@ -30,7 +42,7 @@ func EnginePodFor(engine *storagev1alpha1.Engine, allowedHosts []string) *corev1
 	nfsPrivileged := true
 	pod := spdkPod(engine.Name+"-pod", engine.Namespace, engine.Spec.NodeID, "spdk-engine", "engine", env, &spdkPrivileged)
 	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
-		Name: "nfs", Image: "kdfs-nfs-sidecar:dev",
+		Name: "nfs", Image: PodImages.NFSSidecar,
 		Env: []corev1.EnvVar{
 			{Name: "KDFS_NFS_EXPORT", Value: "/data/" + volumeName},
 			{Name: "KDFS_NFS_BIND", Value: ":2049"},
@@ -99,8 +111,8 @@ func spdkPod(name, namespace, nodeName, spdkContainer, mode string, sidecarEnv [
 				{Name: "spdk-socket", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 			},
 			Containers: []corev1.Container{
-				{Name: spdkContainer, Image: "kdfs-spdk:dev", Args: []string{"--no-huge", "-s", "1024", "--iova-mode=va", "-r", "/var/tmp/spdk.sock"}, SecurityContext: &corev1.SecurityContext{Privileged: privileged}, VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}, {Name: "spdk-socket", MountPath: "/var/tmp"}}},
-				{Name: "sidecar", Image: "kdfs-sidecar:dev", Args: []string{"--mode", mode}, Env: sidecarEnv, VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}, {Name: "spdk-socket", MountPath: "/var/tmp"}}},
+				{Name: spdkContainer, Image: PodImages.SPDK, Args: []string{"--no-huge", "-s", "1024", "--iova-mode=va", "-r", "/var/tmp/spdk.sock"}, SecurityContext: &corev1.SecurityContext{Privileged: privileged}, VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}, {Name: "spdk-socket", MountPath: "/var/tmp"}}},
+				{Name: "sidecar", Image: PodImages.Sidecar, Args: []string{"--mode", mode}, Env: sidecarEnv, VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}, {Name: "spdk-socket", MountPath: "/var/tmp"}}},
 			},
 		},
 	}

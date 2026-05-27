@@ -32,6 +32,9 @@ const (
 	nqnAuthorityKey     = "nqnAuthority"
 	networkPolicyKey    = "networkPolicy"
 	defaultNQNAuthority = "nqn.2026-05.krea.to"
+	spdkImageEnvKey     = "KDFS_SPDK_IMAGE"
+	sidecarImageEnvKey  = "KDFS_SIDECAR_IMAGE"
+	nfsImageEnvKey      = "KDFS_NFS_SIDECAR_IMAGE"
 )
 
 func defaultNetworkPolicyJSON() string {
@@ -136,6 +139,18 @@ func runtimeNamespace() string {
 	return kdfsNamespace
 }
 
+func configureControllerPodImages() {
+	if image := strings.TrimSpace(os.Getenv(spdkImageEnvKey)); image != "" {
+		controller.PodImages.SPDK = image
+	}
+	if image := strings.TrimSpace(os.Getenv(sidecarImageEnvKey)); image != "" {
+		controller.PodImages.Sidecar = image
+	}
+	if image := strings.TrimSpace(os.Getenv(nfsImageEnvKey)); image != "" {
+		controller.PodImages.NFSSidecar = image
+	}
+}
+
 func main() {
 	var metricsAddr string
 	var probeAddr string
@@ -146,6 +161,7 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(logging.ControllerRuntime("controller-manager"))
+	configureControllerPodImages()
 	cfg := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{Scheme: scheme, Metrics: metricsserver.Options{BindAddress: metricsAddr}, HealthProbeBindAddress: probeAddr, LeaderElection: leaderElect, LeaderElectionID: "kdfs.storage.krea.to"})
 	must(err)

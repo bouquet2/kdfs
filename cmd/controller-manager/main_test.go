@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/bouquet2/kdfs/internal/controller"
 )
 
 func testScheme(t *testing.T) *runtime.Scheme {
@@ -181,5 +183,23 @@ func TestRuntimeNamespaceFallsBackToDefault(t *testing.T) {
 	serviceAccountNamespacePath = t.TempDir() + "/missing"
 	if got := runtimeNamespace(); got != kdfsNamespace {
 		t.Fatalf("namespace = %q", got)
+	}
+}
+
+func TestConfigureControllerPodImagesUsesEnvOverrides(t *testing.T) {
+	t.Setenv("KDFS_SPDK_IMAGE", "ghcr.io/example/custom-spdk:v1")
+	t.Setenv("KDFS_SIDECAR_IMAGE", "ghcr.io/example/custom-sidecar:v2")
+	t.Setenv("KDFS_NFS_SIDECAR_IMAGE", "ghcr.io/example/custom-nfs:v3")
+
+	configureControllerPodImages()
+
+	if controller.PodImages.SPDK != "ghcr.io/example/custom-spdk:v1" {
+		t.Fatalf("spdk image = %q", controller.PodImages.SPDK)
+	}
+	if controller.PodImages.Sidecar != "ghcr.io/example/custom-sidecar:v2" {
+		t.Fatalf("sidecar image = %q", controller.PodImages.Sidecar)
+	}
+	if controller.PodImages.NFSSidecar != "ghcr.io/example/custom-nfs:v3" {
+		t.Fatalf("nfs image = %q", controller.PodImages.NFSSidecar)
 	}
 }
