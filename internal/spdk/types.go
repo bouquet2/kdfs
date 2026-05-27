@@ -36,4 +36,7 @@ type Client interface {
 	RemoveListener(ctx context.Context, nqn string, listener Listener) error
 	RemoveNamespace(ctx context.Context, nqn string, nsID int) error
 	DestroyRAID(ctx context.Context, name string) error
+	AddBaseBdev(ctx context.Context, raidName, baseBdev string) error
+	RemoveBaseBdev(ctx context.Context, raidName, baseBdev string) error
+	GetRAIDInfo(ctx context.Context, name string) (map[string]any, error)
 }

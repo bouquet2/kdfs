@@ -222,6 +222,38 @@ func (c *realClient) DestroyRAID(ctx context.Context, name string) error {
 	return nil
 }
 
+func (c *realClient) AddBaseBdev(ctx context.Context, raidName, baseBdev string) error {
+	_, err := c.call("bdev_raid_add_base_bdev", map[string]any{
+		"name":      raidName,
+		"base_bdev": baseBdev,
+	})
+	return err
+}
+
+func (c *realClient) RemoveBaseBdev(ctx context.Context, raidName, baseBdev string) error {
+	_, err := c.call("bdev_raid_remove_base_bdev", map[string]any{
+		"name":      raidName,
+		"base_bdev": baseBdev,
+	})
+	return err
+}
+
+func (c *realClient) GetRAIDInfo(ctx context.Context, name string) (map[string]any, error) {
+	resp, err := c.call("bdev_raid_get_bdevs", map[string]any{
+		"name":     name,
+		"category": "all",
+	})
+	if err != nil {
+		return nil, err
+	}
+	if arr, ok := resp.Result.([]any); ok && len(arr) > 0 {
+		if m, ok := arr[0].(map[string]any); ok {
+			return m, nil
+		}
+	}
+	return nil, fmt.Errorf("RAID bdev %q not found", name)
+}
+
 func (c *realClient) AddHost(ctx context.Context, nqn, host string) error {
 	if !names.IsHostNQN(host) {
 		return fmt.Errorf("invalid host NQN %q", host)

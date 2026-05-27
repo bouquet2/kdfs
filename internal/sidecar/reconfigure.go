@@ -43,102 +43,96 @@ func (e *Engine) Status() Status {
 	return Status{Role: "engine", Endpoint: e.endpoint, SubsystemNQN: e.subsystemNQN}
 }
 
-// Tears down existing attachments and rebuilds the SPDK subsystem to match the new replica set.
+// Reconfigure dynamically updates the RAID-1 array by adding or removing members without tearing down the subsystem.
 func (e *Engine) Reconfigure(ctx context.Context, newReplicas []storagev1alpha1.ReplicaAttachment) error {
 	oldReplicas := e.config.Replicas
+	reconfigureLogger.Info().Int("old_replicas", len(oldReplicas)).Int("new_replicas", len(newReplicas)).Msg("reconfiguring engine")
 
-	if len(newReplicas) == len(oldReplicas) {
-		same := true
-		for i, r := range newReplicas {
-			if r.Name != oldReplicas[i].Name {
-				same = false
+	// 1. Get current RAID info to know what's already there
+	info, err := e.client.GetRAIDInfo(ctx, "raid0")
+	if err != nil {
+		return fmt.Errorf("get raid info: %w", err)
+	}
+	baseBdevs, _ := info["base_bdevs_list"].([]any)
+	currentBdevs := make(map[string]bool)
+	for _, b := range baseBdevs {
+		if m, ok := b.(map[string]any); ok {
+			if name, ok := m["name"].(string); ok {
+				currentBdevs[name] = true
+			}
+		}
+	}
+
+	// 2. Remove old replicas that are not in the new list
+	for i, oldRep := range oldReplicas {
+		if oldRep.IsLocal {
+			continue
+		}
+		bdevName := fmt.Sprintf("nvme%d", i)
+		stillNeeded := false
+		for _, newRep := range newReplicas {
+			if newRep.Name == oldRep.Name {
+				stillNeeded = true
 				break
 			}
 		}
-		if same {
-			return nil
+
+		if !stillNeeded && currentBdevs[bdevName] {
+			reconfigureLogger.Info().Str("bdev", bdevName).Msg("removing base bdev from RAID")
+			if err := e.client.RemoveBaseBdev(ctx, "raid0", bdevName); err != nil {
+				reconfigureLogger.Warn().Err(err).Str("bdev", bdevName).Msg("remove base bdev failed")
+			}
+			if err := e.client.DetachNVMeController(ctx, bdevName); err != nil {
+				reconfigureLogger.Warn().Err(err).Str("bdev", bdevName).Msg("detach NVMe failed")
+			}
 		}
 	}
 
-	reconfigureLogger.Info().Int("old_replicas", len(oldReplicas)).Int("new_replicas", len(newReplicas)).Msg("reconfiguring engine")
-
-	e.client.RemoveListener(ctx, e.subsystemNQN, e.listener)
-
-	e.client.RemoveNamespace(ctx, e.subsystemNQN, 1)
-
-	e.client.DestroyRAID(ctx, "raid0")
-
-	for i, rep := range oldReplicas {
-		if rep.IsLocal {
+	// 3. Add new replicas that are not in the current RAID
+	for i, newRep := range newReplicas {
+		if newRep.IsLocal {
 			continue
 		}
 		bdevName := fmt.Sprintf("nvme%d", i)
-		if err := e.client.DetachNVMeController(ctx, bdevName); err != nil {
-			reconfigureLogger.Warn().Err(err).Str("bdev", bdevName).Msg("detach NVMe failed")
-		}
-	}
-
-	for i, rep := range newReplicas {
-		if rep.IsLocal {
-			reconfigureLogger.Info().Int("replica_index", i).Str("replica", rep.Name).Msg("replica is local on same node, skipping attach")
+		if currentBdevs[bdevName] {
 			continue
 		}
-		adrFam, err := nvmeAddressFamily(rep.Address)
+
+		reconfigureLogger.Info().Str("replica", newRep.Name).Str("bdev", bdevName).Msg("adding new replica to RAID")
+		adrFam, err := nvmeAddressFamily(newRep.Address)
 		if err != nil {
 			return fmt.Errorf("resolve replica address family: %w", err)
 		}
-		bdevName := fmt.Sprintf("nvme%d", i)
+
 		attached := false
 		for attempt := range 5 {
 			_, err := e.client.AttachNVMeController(ctx, spdk.NVMeController{
 				Name:    bdevName,
-				TrAddr:  rep.Address,
-				TrSvcID: rep.Port,
-				SubNQN:  rep.NQN,
+				TrAddr:  newRep.Address,
+				TrSvcID: newRep.Port,
+				SubNQN:  newRep.NQN,
 				AdrFam:  adrFam,
 			})
 			if err != nil {
 				reconfigureLogger.Warn().Err(err).Str("bdev", bdevName).Int("attempt", attempt+1).Msg("attach NVMe failed")
 				if attempt < 4 {
-					time.Sleep(10 * time.Second)
+					time.Sleep(5 * time.Second)
 				}
 				continue
 			}
-			reconfigureLogger.Info().Str("bdev", bdevName).Msg("attached remote bdev")
 			attached = true
 			break
 		}
-		if !attached {
-			reconfigureLogger.Warn().Str("bdev", bdevName).Msg("failed to attach remote bdev after retries")
-		}
-	}
 
-	baseBdevs := []string{"aio0"}
-	for i, rep := range newReplicas {
-		if rep.IsLocal {
-			continue
+		if attached {
+			if err := e.client.AddBaseBdev(ctx, "raid0", bdevName); err != nil {
+				reconfigureLogger.Error().Err(err).Str("bdev", bdevName).Msg("failed to add base bdev to RAID")
+				return fmt.Errorf("add base bdev: %w", err)
+			}
+			reconfigureLogger.Info().Str("bdev", bdevName).Msg("successfully added to RAID (rebuild started)")
+		} else {
+			return fmt.Errorf("failed to attach NVMe controller for %s", bdevName)
 		}
-		bdevName := fmt.Sprintf("nvme%d", i)
-		baseBdevs = append(baseBdevs, bdevName)
-	}
-
-	if len(baseBdevs) > 1 {
-		if err := e.client.CreateMirrorBdev(ctx, "raid0", baseBdevs, 131072); err != nil {
-			return fmt.Errorf("create mirror: %w", err)
-		}
-	}
-	exportBdev := "raid0"
-	if len(baseBdevs) <= 1 {
-		exportBdev = "aio0"
-	}
-
-	for _, step := range []func(){
-		func() { e.client.AddNamespace(ctx, e.subsystemNQN, spdk.Namespace{BdevName: exportBdev}) },
-		func() {
-			e.client.AddListener(ctx, e.subsystemNQN, e.listener)
-		},
-	} {
-		step()
 	}
 
 	e.config.Replicas = newReplicas
