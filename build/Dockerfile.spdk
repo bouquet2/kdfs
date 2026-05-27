@@ -45,7 +45,7 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
     && ./configure $target_arch \
       --without-vhost \
       --without-virtio \
-      --without-fuse \
+      --without-fsdev \
       --without-rbd \
       --without-rdma \
       --without-crypto \
