@@ -129,8 +129,7 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           tags: ${{ env.IMAGE_REPO }}/kdfs-spdk-init
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=kdfs-spdk-init-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=kdfs-spdk-init-${{ matrix.arch }}
+          no-cache: true
           build-contexts: |
             kdfs-spdk:dev=docker-image://${{ env.IMAGE_REPO }}/kdfs-spdk@sha256:${{ env.SPDK_DIGEST }}
       - name: Export digest
