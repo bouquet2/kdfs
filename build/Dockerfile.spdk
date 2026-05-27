@@ -29,26 +29,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --depth 1 --branch v24.09 https://github.com/spdk/spdk.git /spdk-src
 WORKDIR /spdk-src
 RUN git submodule update --init --depth 1
+ARG TARGETARCH
 
-# Build SPDK/DPDK for a generic ARM baseline so the image runs on
-# arm64 nodes that do not expose host-specific features like SVE.
-
-RUN ./configure \
-    --target-arch=armv8-a \
-    --without-vhost \
-    --without-virtio \
-    --without-fuse \
-    --without-rbd \
-    --without-rdma \
-    --without-crypto \
-    --without-iscsi-initiator \
-    --without-vfio-user \
-    --without-ocf \
-    --without-xnvme \
-    --without-nvme-cuse \
-    --disable-tests \
-    --disable-unit-tests \
-    --disable-examples
+# Build SPDK/DPDK for a generic ARM baseline on arm64 so the image runs
+# on nodes that do not expose host-specific features like SVE, while
+# keeping the native configure path on amd64 builds.
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      target_arch='--target-arch=armv8-a'; \
+    else \
+      target_arch=''; \
+    fi \
+    && ./configure $target_arch \
+      --without-vhost \
+      --without-virtio \
+      --without-fuse \
+      --without-rbd \
+      --without-rdma \
+      --without-crypto \
+      --without-iscsi-initiator \
+      --without-vfio-user \
+      --without-ocf \
+      --without-xnvme \
+      --without-nvme-cuse \
+      --disable-tests \
+      --disable-unit-tests \
+      --disable-examples
 
 RUN echo "all:" > app/spdk_top/Makefile && echo "clean:" >> app/spdk_top/Makefile
 
