@@ -62,8 +62,19 @@ func (f *fakeMounter) Unmount(target string) error {
 }
 
 func TestNodeStageAndPublish(t *testing.T) {
-	if _, err := os.Stat("/dev/nvme-fabrics"); err != nil {
-		t.Skip("NVMe-oF not available on this system")
+	prevEnsure := ensureNVMeStagedVolume
+	defer func() { ensureNVMeStagedVolume = prevEnsure }()
+	ensureNVMeStagedVolume = func(_ *Driver, targetPath, endpoint, nqn string, readonly bool) error {
+		if endpoint != "worker-1:4420" {
+			t.Fatalf("endpoint = %q", endpoint)
+		}
+		if nqn != "nqn.2026-05.krea.to:volume-pvc-1234" {
+			t.Fatalf("nqn = %q", nqn)
+		}
+		if readonly {
+			t.Fatal("expected read-write stage")
+		}
+		return os.MkdirAll(targetPath, 0755)
 	}
 	mounter := &fakeMounter{}
 	driver := &Driver{NodeID: "worker-1", Mounter: mounter}

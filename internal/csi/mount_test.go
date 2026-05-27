@@ -14,7 +14,7 @@ func TestExecMounterMountUsesHelperForNFS(t *testing.T) {
 	prev := mountCommand
 	defer func() { mountCommand = prev }()
 	mountCommand = func(args ...string) ([]byte, error) {
-		if len(args) != 5 || args[0] != "-t" || args[1] != "nfs" || args[2] != "-o" || args[3] != "vers=4.1,soft" || args[4] != target {
+		if len(args) != 7 || args[0] != "mount" || args[1] != "-t" || args[2] != "nfs" || args[3] != "-o" || args[4] != "vers=4.1,soft" || args[5] != "server:/export" || args[6] != target {
 			t.Fatalf("args = %#v", args)
 		}
 		return nil, nil

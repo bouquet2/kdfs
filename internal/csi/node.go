@@ -23,6 +23,10 @@ import (
 
 var osWriteFile = os.WriteFile
 
+var ensureNVMeStagedVolume = func(d *Driver, targetPath, endpoint, nqn string, readonly bool) error {
+	return d.ensureNVMeStaged(targetPath, endpoint, nqn, readonly)
+}
+
 func (d *Driver) mounter() Mounter {
 	if d.Mounter == nil {
 		return ExecMounter{}
@@ -72,7 +76,7 @@ func (d *Driver) stageNVMe(ctx context.Context, req *csipb.NodeStageVolumeReques
 	if endpoint == "" || nqn == "" {
 		return nil, fmt.Errorf("publish context requires endpoint and nqn")
 	}
-	if err := d.ensureNVMeStaged(req.StagingTargetPath, endpoint, nqn, stageReadonly(req.GetVolumeCapability())); err != nil {
+	if err := ensureNVMeStagedVolume(d, req.StagingTargetPath, endpoint, nqn, stageReadonly(req.GetVolumeCapability())); err != nil {
 		return nil, fmt.Errorf("stage: %w", err)
 	}
 	return &csipb.NodeStageVolumeResponse{}, nil
@@ -82,7 +86,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csipb.NodePublishVo
 	logger.Info().Str("staging_path", req.StagingTargetPath).Str("target_path", req.TargetPath).Interface("capability", req.VolumeCapability).Interface("publish_context", req.PublishContext).Msg("publish volume")
 
 	if req.PublishContext["endpoint"] != "" && req.PublishContext["nqn"] != "" {
-		if err := d.ensureNVMeStaged(req.StagingTargetPath, req.PublishContext["endpoint"], req.PublishContext["nqn"], req.GetReadonly() || stageReadonly(req.GetVolumeCapability())); err != nil {
+		if err := ensureNVMeStagedVolume(d, req.StagingTargetPath, req.PublishContext["endpoint"], req.PublishContext["nqn"], req.GetReadonly() || stageReadonly(req.GetVolumeCapability())); err != nil {
 			return nil, fmt.Errorf("publish: ensureNVMeStaged failed: %w", err)
 		}
 	}
@@ -137,7 +141,7 @@ func (d *Driver) ensureNVMeStaged(targetPath, endpoint, nqn string, readonly boo
 
 	connStr := fmt.Sprintf("transport=tcp,traddr=%s,trsvcid=%s,nqn=%s", addr, port, nqn)
 	for retry := 0; retry < 3; retry++ {
-		if err := os.WriteFile("/dev/nvme-fabrics", []byte(connStr), 0600); err != nil {
+		if err := osWriteFile("/dev/nvme-fabrics", []byte(connStr), 0600); err != nil {
 			if strings.Contains(err.Error(), "operation already in progress") && retry < 2 {
 				logger.Warn().Err(err).Msg("NVMe connect in progress, waiting for stale controller cleanup")
 				clearNVMeSubsystem(nqn)
