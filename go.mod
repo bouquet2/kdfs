@@ -7,7 +7,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.27.4
-	github.com/onsi/gomega v1.39.0
+	github.com/onsi/gomega v1.41.0
 	github.com/rs/zerolog v1.35.1
 	github.com/spdk/spdk/go/rpc v0.0.0-20260527072317-046ae8c5439e
 	github.com/stretchr/testify v1.11.1
