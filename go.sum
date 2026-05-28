@@ -159,6 +159,8 @@ github.com/smartystreets/goconvey v1.8.1 h1:qGjIddxOk4grTu9JPOU31tVfq3cNdBlNa5sS
 github.com/smartystreets/goconvey v1.8.1/go.mod h1:+/u4qLyY6x1jReYOp7GOM2FSt8aP9CzCZL03bI28W60=
 github.com/spdk/spdk/go/rpc v0.0.0-20260527072317-046ae8c5439e h1:lQG9gCyy3HqZ60OnaXBMXQTSTtlyKREDxoK6oX9YiMw=
 github.com/spdk/spdk/go/rpc v0.0.0-20260527072317-046ae8c5439e/go.mod h1:5DyO+tsmhXkBbzKJPhLs2rc9T5YHPtz2OeuxT0Dem58=
+github.com/spdk/spdk/go/rpc v0.0.0-20260528074804-13da626fd6d9 h1:+oRPo85q40BILEPosLh+QJTOmfBQWu0SJQdDx5ikmw0=
+github.com/spdk/spdk/go/rpc v0.0.0-20260528074804-13da626fd6d9/go.mod h1:5DyO+tsmhXkBbzKJPhLs2rc9T5YHPtz2OeuxT0Dem58=
 github.com/spf13/pflag v1.0.10 h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=
 github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
