@@ -9,7 +9,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
 	github.com/rs/zerolog v1.35.1
-	github.com/spdk/spdk/go/rpc v0.0.0-20260527072317-046ae8c5439e
+	github.com/spdk/spdk/go/rpc v0.0.0-20260528074804-13da626fd6d9
 	github.com/stretchr/testify v1.11.1
 	github.com/willscott/go-nfs v0.0.4
 	github.com/willscott/memphis v0.0.0-20241203204924-a148a489d367
