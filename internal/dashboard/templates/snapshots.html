@@ -1,0 +1,33 @@
+{{define "snapshots"}}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Status</th>
+      <th>Size</th>
+      <th>Created</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Snapshots}}
+    <tr>
+      <td><code>{{.Name}}</code></td>
+      <td><span class="status-{{phaseColor .Status.Phase}}">{{.Status.Phase}}</span></td>
+      <td>{{if .Status.SizeBytes}}{{.Status.SizeBytes}} B{{else}}-{{end}}</td>
+      <td>{{if .Status.CreationTime}}{{ago .Status.CreationTime.Time}}{{else}}-{{end}}</td>
+      <td>
+        <button hx-post="/volumes/{{$.VolumeName}}/snapshots/{{.Name}}/delete"
+                hx-confirm="Delete snapshot {{.Name}}?"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                style="background:#e76f51;border-color:#e76f51;padding:0.2rem 0.5rem;font-size:0.8rem">Del</button>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{if not .Snapshots}}
+<p>No snapshots found.</p>
+{{end}}
+{{end}}

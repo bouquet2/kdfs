@@ -19,12 +19,14 @@ const (
 	ReplicaConditionNVMFExported      = "NVMFExported"
 )
 
+// +kubebuilder:object:generate=true
 type ReplicaSpec struct {
-	VolumeRef LocalObjectReference `json:"volumeRef"`
-	NodeID    string               `json:"nodeID"`
-	Type      ReplicaType          `json:"type"`
-	Size      string               `json:"size"`
-	DataPath  string               `json:"dataPath"`
+	VolumeRef      LocalObjectReference `json:"volumeRef"`
+	NodeID         string               `json:"nodeID"`
+	Type           ReplicaType          `json:"type"`
+	Size           string               `json:"size"`
+	DataPath       string               `json:"dataPath"`
+	SnapshotSource string               `json:"snapshotSource,omitempty"`
 }
 
 // +kubebuilder:object:generate=true

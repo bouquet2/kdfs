@@ -69,6 +69,8 @@ func (d *Driver) ControllerGetCapabilities(ctx context.Context, req *csipb.Contr
 		Capabilities: []*csipb.ControllerServiceCapability{
 			{Type: &csipb.ControllerServiceCapability_Rpc{Rpc: &csipb.ControllerServiceCapability_RPC{Type: csipb.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME}}},
 			{Type: &csipb.ControllerServiceCapability_Rpc{Rpc: &csipb.ControllerServiceCapability_RPC{Type: csipb.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME}}},
+			{Type: &csipb.ControllerServiceCapability_Rpc{Rpc: &csipb.ControllerServiceCapability_RPC{Type: csipb.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT}}},
+			{Type: &csipb.ControllerServiceCapability_Rpc{Rpc: &csipb.ControllerServiceCapability_RPC{Type: csipb.ControllerServiceCapability_RPC_LIST_SNAPSHOTS}}},
 		},
 	}, nil
 }

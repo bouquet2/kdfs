@@ -93,8 +93,8 @@ func (r *VolumeReconciler) healReplicas(ctx context.Context, volume *storagev1al
 	volume.Status.ReplicaHealth = newHealth
 
 	threshold := desired - 1
-	if threshold < 1 {
-		threshold = 1
+	if threshold < 0 {
+		threshold = 0
 	}
 	if healthyCount < threshold {
 		log.Info("not enough healthy replicas to safely heal", "healthy", healthyCount, "desired", desired)

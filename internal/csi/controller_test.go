@@ -151,3 +151,122 @@ func TestControllerPublishVolumeRWXExtractsIPv6ServerHost(t *testing.T) {
 		t.Fatalf("rwx publish context = %#v", resp.PublishContext)
 	}
 }
+
+func TestCreateSnapshot(t *testing.T) {
+	volume := &storagev1alpha1.Volume{ObjectMeta: metav1.ObjectMeta{Name: "pvc-1234", Namespace: "kdfs"}}
+	driver := csiTestClient(t, volume)
+	resp, err := driver.CreateSnapshot(context.Background(), &csipb.CreateSnapshotRequest{Name: "snap-abc", SourceVolumeId: "pvc-1234"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Snapshot.SnapshotId != "snap-abc" {
+		t.Fatal("wrong snapshot ID")
+	}
+	if resp.Snapshot.SourceVolumeId != "pvc-1234" {
+		t.Fatal("wrong source volume")
+	}
+	if resp.Snapshot.ReadyToUse {
+		t.Fatal("should not be ready yet")
+	}
+}
+
+func TestDeleteSnapshot(t *testing.T) {
+	snap := &storagev1alpha1.Snapshot{ObjectMeta: metav1.ObjectMeta{Name: "snap-abc", Namespace: "kdfs"},
+		Spec: storagev1alpha1.SnapshotSpec{VolumeRef: "pvc-1234", SnapshotID: "snap-abc"}}
+	driver := csiTestClient(t, snap)
+	_, err := driver.DeleteSnapshot(context.Background(), &csipb.DeleteSnapshotRequest{SnapshotId: "snap-abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = driver.DeleteSnapshot(context.Background(), &csipb.DeleteSnapshotRequest{SnapshotId: "nonexistent"})
+	if err != nil {
+		t.Fatal("should not error on nonexistent")
+	}
+}
+
+func TestListSnapshots(t *testing.T) {
+	snap1 := &storagev1alpha1.Snapshot{ObjectMeta: metav1.ObjectMeta{Name: "snap-abc", Namespace: "kdfs"},
+		Spec: storagev1alpha1.SnapshotSpec{VolumeRef: "pvc-1234", SnapshotID: "snap-abc"}}
+	snap2 := &storagev1alpha1.Snapshot{ObjectMeta: metav1.ObjectMeta{Name: "snap-def", Namespace: "kdfs"},
+		Spec: storagev1alpha1.SnapshotSpec{VolumeRef: "pvc-5678", SnapshotID: "snap-def"}}
+	driver := csiTestClient(t, snap1, snap2)
+	resp, _ := driver.ListSnapshots(context.Background(), &csipb.ListSnapshotsRequest{})
+	if len(resp.Entries) != 2 {
+		t.Fatalf("expected 2, got %d", len(resp.Entries))
+	}
+}
+
+func TestListSnapshotsFilteredByVolume(t *testing.T) {
+	snap := &storagev1alpha1.Snapshot{ObjectMeta: metav1.ObjectMeta{Name: "snap-abc", Namespace: "kdfs"},
+		Spec: storagev1alpha1.SnapshotSpec{VolumeRef: "pvc-1234", SnapshotID: "snap-abc"}}
+	driver := csiTestClient(t, snap)
+	resp, _ := driver.ListSnapshots(context.Background(), &csipb.ListSnapshotsRequest{SourceVolumeId: "pvc-1234"})
+	if len(resp.Entries) != 1 {
+		t.Fatalf("expected 1, got %d", len(resp.Entries))
+	}
+}
+
+func TestCreateVolumeFromSnapshot(t *testing.T) {
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-abc", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "pvc-1234", SnapshotID: "snap-abc"},
+		Status:     storagev1alpha1.SnapshotStatus{ReadyToUse: true, EngineNode: "worker-2", SnapshotPath: "/snapshots/snap-abc.img"},
+	}
+	driver := csiTestClient(t, snap)
+	req := csiCreateVolumeReq("pvc-from-snap", "")
+	req.VolumeContentSource = &csipb.VolumeContentSource{
+		Type: &csipb.VolumeContentSource_Snapshot{
+			Snapshot: &csipb.VolumeContentSource_SnapshotSource{SnapshotId: "snap-abc"},
+		},
+	}
+	resp, err := driver.CreateVolume(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Volume.VolumeId != "pvc-from-snap" {
+		t.Fatalf("response = %#v", resp)
+	}
+	volume := &storagev1alpha1.Volume{}
+	if err := driver.Client.Get(context.Background(), types.NamespacedName{Name: "pvc-from-snap", Namespace: "kdfs"}, volume); err != nil {
+		t.Fatal(err)
+	}
+	if volume.Spec.NodeID != "worker-2" {
+		t.Fatalf("expected nodeID from snapshot engine node = %q", volume.Spec.NodeID)
+	}
+	if volume.Spec.SnapshotSource == nil || volume.Spec.SnapshotSource.SnapshotName != "snap-abc" {
+		t.Fatalf("snapshot source = %#v", volume.Spec.SnapshotSource)
+	}
+}
+
+func TestCreateVolumeFromSnapshotErrorsWhenNotReady(t *testing.T) {
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-abc", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "pvc-1234", SnapshotID: "snap-abc"},
+		Status:     storagev1alpha1.SnapshotStatus{ReadyToUse: false},
+	}
+	driver := csiTestClient(t, snap)
+	req := csiCreateVolumeReq("pvc-from-snap", "")
+	req.VolumeContentSource = &csipb.VolumeContentSource{
+		Type: &csipb.VolumeContentSource_Snapshot{
+			Snapshot: &csipb.VolumeContentSource_SnapshotSource{SnapshotId: "snap-abc"},
+		},
+	}
+	_, err := driver.CreateVolume(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error for snapshot not ready")
+	}
+}
+
+func TestCreateVolumeFromSnapshotErrorsWhenNotFound(t *testing.T) {
+	driver := csiTestClient(t)
+	req := csiCreateVolumeReq("pvc-from-snap", "")
+	req.VolumeContentSource = &csipb.VolumeContentSource{
+		Type: &csipb.VolumeContentSource_Snapshot{
+			Snapshot: &csipb.VolumeContentSource_SnapshotSource{SnapshotId: "nonexistent"},
+		},
+	}
+	_, err := driver.CreateVolume(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error for snapshot not found")
+	}
+}

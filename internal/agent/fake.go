@@ -3,8 +3,14 @@ package agent
 import "context"
 
 type FakeClient struct {
-	Created []CreateReplicaRequest
-	Err     error
+	Created  []CreateReplicaRequest
+	Deleted  []DeleteSnapshotRequest
+	Err      error
+}
+
+func (f *FakeClient) DeleteSnapshot(ctx context.Context, req DeleteSnapshotRequest) error {
+	f.Deleted = append(f.Deleted, req)
+	return f.Err
 }
 
 func (f *FakeClient) CreateReplica(ctx context.Context, req CreateReplicaRequest) (CreateReplicaResponse, error) {

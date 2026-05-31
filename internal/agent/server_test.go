@@ -106,3 +106,48 @@ func TestGetReplicaReturnsMissingWhenStatFails(t *testing.T) {
 		t.Fatalf("response = %#v", resp)
 	}
 }
+
+func TestCreateReplicaFromSnapshotUsesCopyFile(t *testing.T) {
+	var mkdirPath string
+	var attachedPath string
+	var copiedSrc, copiedDst string
+	server := &Server{
+		Runner: &fakeRunner{},
+		MkdirAll: func(path string, _ os.FileMode) error {
+			mkdirPath = path
+			return nil
+		},
+		AttachLoopDevice: func(path string) (string, error) {
+			attachedPath = path
+			return "/dev/loop7", nil
+		},
+		CopyFile: func(src, dst string) error {
+			copiedSrc = src
+			copiedDst = dst
+			return nil
+		},
+	}
+	resp, err := server.CreateReplica(context.Background(), CreateReplicaRequest{
+		Path:           "/var/lib/kdfs/pvc-1234/vol.img",
+		Size:           "10Gi",
+		SnapshotSource: "/var/lib/kdfs/snapshots/snap-abc.img",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mkdirPath != "/var/lib/kdfs/pvc-1234" {
+		t.Fatalf("mkdir path = %q", mkdirPath)
+	}
+	if copiedSrc != "/var/lib/kdfs/snapshots/snap-abc.img" {
+		t.Fatalf("copy src = %q", copiedSrc)
+	}
+	if copiedDst != "/var/lib/kdfs/pvc-1234/vol.img" {
+		t.Fatalf("copy dst = %q", copiedDst)
+	}
+	if attachedPath != "/var/lib/kdfs/pvc-1234/vol.img" {
+		t.Fatalf("attach path = %q", attachedPath)
+	}
+	if resp.DevicePath != "/dev/loop7" || resp.State != ReplicaStateReady {
+		t.Fatalf("response = %#v", resp)
+	}
+}

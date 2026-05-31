@@ -16,6 +16,7 @@ type replicaServer interface {
 	CreateReplica(context.Context, agent.CreateReplicaRequest) (agent.CreateReplicaResponse, error)
 	DeleteReplica(context.Context, agent.DeleteReplicaRequest) error
 	GetReplica(context.Context, agent.GetReplicaRequest) (agent.GetReplicaResponse, error)
+	DeleteSnapshot(context.Context, agent.DeleteSnapshotRequest) error
 }
 
 func handler(server replicaServer) http.Handler {
@@ -26,6 +27,7 @@ func handler(server replicaServer) http.Handler {
 	mux.HandleFunc("/replicas/create", createReplicaHandler(server))
 	mux.HandleFunc("/replicas/delete", deleteReplicaHandler(server))
 	mux.HandleFunc("/replicas/get", getReplicaHandler(server))
+	mux.HandleFunc("/snapshots/delete", deleteSnapshotHandler(server))
 	return mux
 }
 
@@ -62,6 +64,25 @@ func deleteReplicaHandler(server replicaServer) http.HandlerFunc {
 			return
 		}
 		if err := server.DeleteReplica(r.Context(), req); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func deleteSnapshotHandler(server replicaServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var req agent.DeleteSnapshotRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := server.DeleteSnapshot(r.Context(), req); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

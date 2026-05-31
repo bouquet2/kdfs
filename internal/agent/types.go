@@ -10,8 +10,9 @@ const (
 )
 
 type CreateReplicaRequest struct {
-	Path string
-	Size string
+	Path           string
+	Size           string
+	SnapshotSource string `json:"snapshotSource,omitempty"`
 }
 
 type CreateReplicaResponse struct {
@@ -27,6 +28,10 @@ type GetReplicaRequest struct {
 	Path string
 }
 
+type DeleteSnapshotRequest struct {
+	Path string `json:"path"`
+}
+
 type GetReplicaResponse struct {
 	State ReplicaState
 	Size  string
@@ -36,4 +41,5 @@ type Client interface {
 	CreateReplica(ctx context.Context, req CreateReplicaRequest) (CreateReplicaResponse, error)
 	DeleteReplica(ctx context.Context, req DeleteReplicaRequest) error
 	GetReplica(ctx context.Context, req GetReplicaRequest) (GetReplicaResponse, error)
+	DeleteSnapshot(ctx context.Context, req DeleteSnapshotRequest) error
 }

@@ -27,6 +27,10 @@ func ReplicaName(volumeName string, i int) string { return fmt.Sprintf("%s-repli
 
 func DataPath(volumeName string) string { return fmt.Sprintf("/var/lib/kdfs/%s/vol.img", volumeName) }
 
+func SnapshotFilePath(volumeName, snapshotID string) string {
+	return fmt.Sprintf("/var/lib/kdfs/%s/snapshot-%s.img", volumeName, snapshotID)
+}
+
 func VolumeNQN(volumeName string) string { return fmt.Sprintf("%s:volume-%s", authority(), volumeName) }
 
 func ReplicaNQN(volumeName string, i int) string {

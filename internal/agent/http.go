@@ -35,6 +35,10 @@ func (c *HTTPClient) DeleteReplica(ctx context.Context, req DeleteReplicaRequest
 	return c.doJSON(ctx, "/replicas/delete", req, nil)
 }
 
+func (c *HTTPClient) DeleteSnapshot(ctx context.Context, req DeleteSnapshotRequest) error {
+	return c.doJSON(ctx, "/snapshots/delete", req, nil)
+}
+
 func (c *HTTPClient) GetReplica(ctx context.Context, req GetReplicaRequest) (GetReplicaResponse, error) {
 	var resp GetReplicaResponse
 	if err := c.doJSON(ctx, "/replicas/get", req, &resp); err != nil {

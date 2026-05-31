@@ -39,11 +39,18 @@ type NamespacedObjectReference struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
+type SnapshotSource struct {
+	SnapshotName string `json:"snapshotName"`
+}
+
+// +kubebuilder:object:generate=true
 type VolumeSpec struct {
-	Size             string `json:"size"`
-	StorageClassName string `json:"storageClassName,omitempty"`
-	NodeID           string `json:"nodeID"`
-	ReplicaCount     string `json:"replicaCount,omitempty"`
+	Size             string           `json:"size"`
+	StorageClassName string           `json:"storageClassName,omitempty"`
+	NodeID           string           `json:"nodeID"`
+	ReplicaCount     string           `json:"replicaCount,omitempty"`
+	SnapshotSource   *SnapshotSource  `json:"snapshotSource,omitempty"`
 }
 
 func ParseReplicaCount(value string) (count int, auto bool, err error) {

@@ -198,6 +198,48 @@ func TestReplicaReconcileReturnsErrorWhenProvisioningFails(t *testing.T) {
 	}
 }
 
+func TestReplicaReconcileFromSnapshotPassesSnapshotSourceToAgent(t *testing.T) {
+	ctx := context.Background()
+	replica := &storagev1alpha1.Replica{
+		ObjectMeta: metav1.ObjectMeta{Name: names.ReplicaName("pvc-snap", 0), Namespace: "kdfs"},
+		Spec: storagev1alpha1.ReplicaSpec{
+			VolumeRef:      storagev1alpha1.LocalObjectReference{Name: "pvc-snap"},
+			NodeID:         "worker-1",
+			Type:           storagev1alpha1.ReplicaTypeLocal,
+			Size:           "10Gi",
+			DataPath:       names.DataPath("pvc-snap"),
+			SnapshotSource: "snap-abc",
+		},
+	}
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-abc", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "pvc-snap", SnapshotID: "snap-abc"},
+		Status:     storagev1alpha1.SnapshotStatus{SnapshotPath: "/snapshots/snap-abc.img", ReadyToUse: true, EngineNode: "worker-1"},
+	}
+	fakeAgent := &agent.FakeClient{}
+	c := newFakeClient(t, replica, snap).WithStatusSubresource(&storagev1alpha1.Replica{}).Build()
+	r := &ReplicaReconciler{Client: c, Scheme: testScheme(t), Agent: fakeAgent}
+
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: replica.Name, Namespace: replica.Namespace}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(fakeAgent.Created) != 1 {
+		t.Fatalf("expected 1 CreateReplica call, got %d", len(fakeAgent.Created))
+	}
+	req := fakeAgent.Created[0]
+	if req.SnapshotSource != "/snapshots/snap-abc.img" {
+		t.Fatalf("SnapshotSource = %q, want %q", req.SnapshotSource, "/snapshots/snap-abc.img")
+	}
+	if req.Path != names.DataPath("pvc-snap") {
+		t.Fatalf("Path = %q", req.Path)
+	}
+	if req.Size != "10Gi" {
+		t.Fatalf("Size = %q", req.Size)
+	}
+}
+
 type failingAgent struct{ err error }
 
 func (f failingAgent) CreateReplica(context.Context, agent.CreateReplicaRequest) (agent.CreateReplicaResponse, error) {
@@ -205,6 +247,8 @@ func (f failingAgent) CreateReplica(context.Context, agent.CreateReplicaRequest)
 }
 
 func (f failingAgent) DeleteReplica(context.Context, agent.DeleteReplicaRequest) error { return f.err }
+
+func (f failingAgent) DeleteSnapshot(context.Context, agent.DeleteSnapshotRequest) error { return f.err }
 
 func (f failingAgent) GetReplica(context.Context, agent.GetReplicaRequest) (agent.GetReplicaResponse, error) {
 	return agent.GetReplicaResponse{}, f.err

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	storagev1alpha1 "github.com/bouquet2/kdfs/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -89,6 +90,7 @@ func (r *VolumeReconciler) pickWorkerNodes(ctx context.Context, n int) ([]string
 			workers = append(workers, node.Name)
 		}
 	}
+	sort.Strings(workers)
 	if n > len(workers) {
 		n = len(workers)
 	}

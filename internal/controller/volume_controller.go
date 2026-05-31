@@ -73,7 +73,9 @@ func (r *VolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	engine := &storagev1alpha1.Engine{}
 	if err := r.Get(ctx, types.NamespacedName{Name: names.EngineName(volume.Name), Namespace: volume.Namespace}, engine); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+			volume.Status.EngineRef = nil
+			volume.Status.Phase = storagev1alpha1.VolumePhaseCreating
+			return ctrl.Result{}, r.Status().Update(ctx, volume)
 		}
 		return ctrl.Result{}, err
 	}
@@ -127,20 +129,27 @@ func (r *VolumeReconciler) ensureChildren(ctx context.Context, volume *storagev1
 	replicas := make([]storagev1alpha1.ReplicaAttachment, 0, len(nodes))
 
 	for i, node := range nodes {
+		if volume.Spec.SnapshotSource != nil {
+			node = volume.Spec.NodeID
+		}
 		replicaName := names.ReplicaName(volume.Name, i)
 		replicaType := storagev1alpha1.ReplicaTypeRemote
 		if node == volume.Spec.NodeID {
 			replicaType = storagev1alpha1.ReplicaTypeLocal
 		}
+		spec := storagev1alpha1.ReplicaSpec{
+			VolumeRef: storagev1alpha1.LocalObjectReference{Name: volume.Name},
+			NodeID:    node,
+			Type:      replicaType,
+			Size:      volume.Spec.Size,
+			DataPath:  names.DataPath(volume.Name),
+		}
+		if volume.Spec.SnapshotSource != nil {
+			spec.SnapshotSource = volume.Spec.SnapshotSource.SnapshotName
+		}
 		replica := &storagev1alpha1.Replica{
 			ObjectMeta: metav1.ObjectMeta{Name: replicaName, Namespace: volume.Namespace, OwnerReferences: []metav1.OwnerReference{owner}},
-			Spec: storagev1alpha1.ReplicaSpec{
-				VolumeRef: storagev1alpha1.LocalObjectReference{Name: volume.Name},
-				NodeID:    node,
-				Type:      replicaType,
-				Size:      volume.Spec.Size,
-				DataPath:  names.DataPath(volume.Name),
-			},
+			Spec:       spec,
 		}
 		if err := r.createIfMissing(ctx, replica); err != nil {
 			return err

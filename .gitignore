@@ -1,5 +1,6 @@
 .direnv/
 .superpowers/
+.worktrees/
 docs/superpowers
 bin/
 dist/

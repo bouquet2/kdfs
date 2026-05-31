@@ -51,8 +51,38 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csipb.CreateVolumeReques
 		}
 	}
 	logger.Info().Str("name", req.Name).Str("node_id", nodeID).Bool("from_topology", req.GetAccessibilityRequirements() != nil).Str("driver_node_id", d.NodeID).Msg("create volume")
-	size := fmt.Sprintf("%d", req.GetCapacityRange().GetRequiredBytes())
-	volume := &storagev1alpha1.Volume{ObjectMeta: metav1.ObjectMeta{Name: req.Name, Namespace: d.Namespace}, Spec: storagev1alpha1.VolumeSpec{Size: size, StorageClassName: req.Parameters["storageClassName"], NodeID: nodeID}}
+	var volume *storagev1alpha1.Volume
+	if src := req.GetVolumeContentSource(); src != nil {
+		snapSrc := src.GetSnapshot()
+		if snapSrc == nil {
+			return nil, fmt.Errorf("unsupported volume content source")
+		}
+		snap := &storagev1alpha1.Snapshot{}
+		if err := d.Client.Get(ctx, types.NamespacedName{Name: snapSrc.SnapshotId, Namespace: d.Namespace}, snap); err != nil {
+			return nil, fmt.Errorf("snapshot not found: %w", err)
+		}
+		if !snap.Status.ReadyToUse {
+			return nil, fmt.Errorf("snapshot %s is not ready to use", snapSrc.SnapshotId)
+		}
+		volume = &storagev1alpha1.Volume{
+			ObjectMeta: metav1.ObjectMeta{Name: req.Name, Namespace: d.Namespace},
+			Spec: storagev1alpha1.VolumeSpec{
+				Size:             fmt.Sprintf("%d", req.GetCapacityRange().GetRequiredBytes()),
+				StorageClassName: req.Parameters["storageClassName"],
+				NodeID:           snap.Status.EngineNode,
+				SnapshotSource:   &storagev1alpha1.SnapshotSource{SnapshotName: snapSrc.SnapshotId},
+			},
+		}
+	} else {
+		volume = &storagev1alpha1.Volume{
+			ObjectMeta: metav1.ObjectMeta{Name: req.Name, Namespace: d.Namespace},
+			Spec: storagev1alpha1.VolumeSpec{
+				Size:             fmt.Sprintf("%d", req.GetCapacityRange().GetRequiredBytes()),
+				StorageClassName: req.Parameters["storageClassName"],
+				NodeID:           nodeID,
+			},
+		}
+	}
 	if err := d.Client.Create(ctx, volume); err != nil && !apierrors.IsAlreadyExists(err) {
 		return nil, err
 	}

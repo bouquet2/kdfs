@@ -360,6 +360,42 @@ func (h *Handler) effectiveReplicaCount(ctx context.Context, volume *storagev1al
 	return count
 }
 
+func (h *Handler) HandleSnapshots(w http.ResponseWriter, r *http.Request) {
+	volumeName := r.PathValue("name")
+	var snapshots storagev1alpha1.SnapshotList
+	if err := h.Client.List(r.Context(), &snapshots, client.InNamespace(h.Namespace)); err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`<mark style="color:red">failed to list snapshots: ` + html.EscapeString(err.Error()) + `</mark>`))
+		return
+	}
+	var filtered []storagev1alpha1.Snapshot
+	for _, s := range snapshots.Items {
+		if s.Spec.VolumeRef == volumeName {
+			filtered = append(filtered, s)
+		}
+	}
+	w.Header().Set("Content-Type", "text/html")
+	if err := Render(w, "snapshots", map[string]any{"Snapshots": filtered, "VolumeName": volumeName}); err != nil {
+		http.Error(w, "render error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) HandleSnapshotDelete(w http.ResponseWriter, r *http.Request) {
+	snapshotName := r.PathValue("snapshot")
+	snapshot := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: snapshotName, Namespace: h.Namespace},
+	}
+	if err := h.Client.Delete(r.Context(), snapshot); err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`<mark style="color:red">Delete failed: ` + html.EscapeString(err.Error()) + `</mark>`))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(`<tr><td colspan="5">Deleted</td></tr>`))
+}
+
 func (h *Handler) renderEmptyReplicas(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html")
 	if err := Render(w, "replicas", map[string]any{"Replicas": []replicaView{}}); err != nil {

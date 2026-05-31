@@ -74,12 +74,15 @@ func ConfigureEngine(ctx context.Context, client spdk.Client, config EngineConfi
 		}
 	}
 
-	if len(baseBdevs) > 0 {
+	var exportBdev string
+	if len(baseBdevs) <= 1 {
+		exportBdev = "aio0"
+	} else {
 		if err := client.CreateMirrorBdev(ctx, "raid0", baseBdevs, 131072); err != nil {
 			return nil, err
 		}
+		exportBdev = "raid0"
 	}
-	exportBdev := "raid0"
 
 	nqn := names.VolumeNQN(config.VolumeName)
 	if err := client.CreateSubsystem(ctx, nqn, "kdfs-vol", true); err != nil {

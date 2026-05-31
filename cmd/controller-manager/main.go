@@ -180,6 +180,11 @@ func main() {
 	must((&controller.VolumeReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr))
 	must((&controller.ReplicaReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), AgentFactory: replicaAgentFactory}).SetupWithManager(mgr))
 	must((&controller.EngineReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr))
+	must((&controller.SnapshotReconciler{
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		AgentFactory: replicaAgentFactory,
+	}).SetupWithManager(mgr))
 	must(mgr.AddHealthzCheck("healthz", healthz.Ping))
 	must(mgr.AddReadyzCheck("readyz", healthz.Ping))
 	must(mgr.Start(ctrl.SetupSignalHandler()))

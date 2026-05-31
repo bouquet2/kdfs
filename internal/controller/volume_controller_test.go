@@ -430,6 +430,31 @@ func TestReplicasForVolumeRejectsZeroReplicaCountString(t *testing.T) {
 	}
 }
 
+func TestVolumeReconcileFromSnapshotPassesSnapshotSource(t *testing.T) {
+	ctx := context.Background()
+	volume := newTestVolume("pvc-snap", "kdfs", "worker-1")
+	volume.Spec.SnapshotSource = &storagev1alpha1.SnapshotSource{SnapshotName: "snap-abc"}
+	node1 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-1"}}
+	node2 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-2"}}
+	c := newFakeClient(t, volume, node1, node2).WithStatusSubresource(&storagev1alpha1.Volume{}).Build()
+
+	r := &VolumeReconciler{Client: c, Scheme: testScheme(t)}
+	_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: volume.Name, Namespace: volume.Namespace}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 2; i++ {
+		replica := &storagev1alpha1.Replica{}
+		if err := c.Get(ctx, types.NamespacedName{Name: names.ReplicaName(volume.Name, i), Namespace: volume.Namespace}, replica); err != nil {
+			t.Fatalf("replica-%d not created: %v", i, err)
+		}
+		if replica.Spec.SnapshotSource != "snap-abc" {
+			t.Fatalf("replica-%d SnapshotSource = %q", i, replica.Spec.SnapshotSource)
+		}
+	}
+}
+
 func TestReplicasForVolumeUsesExplicitReplicaCountString(t *testing.T) {
 	ctx := context.Background()
 	volume := newTestVolume("pvc-1234", "kdfs", "worker-1")

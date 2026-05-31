@@ -9,6 +9,7 @@
 <div role="tablist">
   <button role="tab" hx-get="/volumes/{{.Volume.Name}}/overview" hx-target="#tab-content" hx-swap="innerHTML" aria-selected="true">Overview</button>
   <button role="tab" hx-get="/volumes/{{.Volume.Name}}/replicas" hx-target="#tab-content" hx-swap="innerHTML">Replicas</button>
+  <button role="tab" hx-get="/volumes/{{.Volume.Name}}/snapshots" hx-target="#tab-content" hx-swap="innerHTML">Snapshots</button>
 </div>
 <div id="tab-content">
 {{template "overview" .}}

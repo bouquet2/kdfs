@@ -68,3 +68,11 @@ func TestDataPath(t *testing.T) {
 		t.Fatalf("DataPath() = %q", got)
 	}
 }
+
+func TestSnapshotFilePath(t *testing.T) {
+	path := SnapshotFilePath("my-vol", "snap-abc123")
+	want := "/var/lib/kdfs/my-vol/snapshot-snap-abc123.img"
+	if path != want {
+		t.Fatalf("got %q, want %q", path, want)
+	}
+}

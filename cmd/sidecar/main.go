@@ -169,6 +169,8 @@ func main() {
 		}
 		mux.HandleFunc("/reconfigure", engine.ReconfigureHTTP)
 		mux.HandleFunc("/status", engine.StatusHTTP)
+		snapshotter := sidecar.NewReflinkSnapshotter(volumeName, localPath)
+		mux.HandleFunc("/snapshot", sidecar.SnapshotHTTP(snapshotter))
 	case "replica":
 		resolvedPolicy, err := network.ResolvePolicy("replica", policies, runtimeValues)
 		if err != nil {

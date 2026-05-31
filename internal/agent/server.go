@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/bouquet2/kdfs/internal/reflink"
 	"github.com/bouquet2/kdfs/internal/xfs"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -30,6 +31,7 @@ type Server struct {
 	AttachLoopDevice func(path string) (string, error)
 	RemoveFile       func(path string) error
 	StatFile         func(path string) error
+	CopyFile         func(src, dst string) error
 }
 
 func (s *Server) runner() Runner {
@@ -97,16 +99,25 @@ func parseReplicaSize(size string) (int64, error) {
 
 func (s *Server) CreateReplica(ctx context.Context, req CreateReplicaRequest) (CreateReplicaResponse, error) {
 	_ = ctx
-	size, err := parseReplicaSize(req.Size)
-	if err != nil {
-		return CreateReplicaResponse{}, err
-	}
 	if err := s.mkdirAll(filepath.Dir(req.Path), 0755); err != nil {
 		return CreateReplicaResponse{}, err
 	}
-	if err := s.truncateFile(req.Path, size); err != nil {
-		return CreateReplicaResponse{}, err
+
+	if req.SnapshotSource != "" {
+		s.removeFile(req.Path)
+		if err := s.copyFile(req.SnapshotSource, req.Path); err != nil {
+			return CreateReplicaResponse{}, fmt.Errorf("snapshot restore: %w", err)
+		}
+	} else {
+		size, err := parseReplicaSize(req.Size)
+		if err != nil {
+			return CreateReplicaResponse{}, err
+		}
+		if err := s.truncateFile(req.Path, size); err != nil {
+			return CreateReplicaResponse{}, err
+		}
 	}
+
 	device, err := s.attachLoopDevice(req.Path)
 	if err != nil {
 		return CreateReplicaResponse{}, err
@@ -118,7 +129,19 @@ func (s *Server) CreateReplica(ctx context.Context, req CreateReplicaRequest) (C
 	return CreateReplicaResponse{DevicePath: device, State: ReplicaStateReady}, nil
 }
 
+func (s *Server) copyFile(src, dst string) error {
+	if s.CopyFile != nil {
+		return s.CopyFile(src, dst)
+	}
+	return reflink.FileOrCopy(src, dst)
+}
+
 func (s *Server) DeleteReplica(ctx context.Context, req DeleteReplicaRequest) error {
+	_ = ctx
+	return s.removeFile(req.Path)
+}
+
+func (s *Server) DeleteSnapshot(ctx context.Context, req DeleteSnapshotRequest) error {
 	_ = ctx
 	return s.removeFile(req.Path)
 }

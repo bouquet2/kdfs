@@ -12,9 +12,10 @@ import (
 )
 
 type fakeReplicaServer struct {
-	create func(context.Context, agent.CreateReplicaRequest) (agent.CreateReplicaResponse, error)
-	delete func(context.Context, agent.DeleteReplicaRequest) error
-	get    func(context.Context, agent.GetReplicaRequest) (agent.GetReplicaResponse, error)
+	create     func(context.Context, agent.CreateReplicaRequest) (agent.CreateReplicaResponse, error)
+	delete     func(context.Context, agent.DeleteReplicaRequest) error
+	get        func(context.Context, agent.GetReplicaRequest) (agent.GetReplicaResponse, error)
+	deleteSnap func(context.Context, agent.DeleteSnapshotRequest) error
 }
 
 func (f fakeReplicaServer) CreateReplica(ctx context.Context, req agent.CreateReplicaRequest) (agent.CreateReplicaResponse, error) {
@@ -36,6 +37,13 @@ func (f fakeReplicaServer) GetReplica(ctx context.Context, req agent.GetReplicaR
 		return agent.GetReplicaResponse{}, errors.New("unexpected get")
 	}
 	return f.get(ctx, req)
+}
+
+func (f fakeReplicaServer) DeleteSnapshot(ctx context.Context, req agent.DeleteSnapshotRequest) error {
+	if f.deleteSnap == nil {
+		return nil
+	}
+	return f.deleteSnap(ctx, req)
 }
 
 func TestCreateReplicaHandler(t *testing.T) {

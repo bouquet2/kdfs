@@ -13,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -51,7 +52,18 @@ func (r *ReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if agentClient == nil {
 		return ctrl.Result{}, fmt.Errorf("replica reconciler agent client is not configured")
 	}
-	if _, err := agentClient.CreateReplica(ctx, agent.CreateReplicaRequest{Path: replica.Spec.DataPath, Size: replica.Spec.Size}); err != nil {
+	snapPath := ""
+	if replica.Spec.SnapshotSource != "" {
+		snap := &storagev1alpha1.Snapshot{}
+		if err := r.Get(ctx, types.NamespacedName{Name: replica.Spec.SnapshotSource, Namespace: replica.Namespace}, snap); err == nil {
+			snapPath = snap.Status.SnapshotPath
+		}
+	}
+	if _, err := agentClient.CreateReplica(ctx, agent.CreateReplicaRequest{
+		Path:           replica.Spec.DataPath,
+		Size:           replica.Spec.Size,
+		SnapshotSource: snapPath,
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 	if replica.Spec.Type == storagev1alpha1.ReplicaTypeRemote {

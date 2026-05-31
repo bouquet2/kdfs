@@ -254,6 +254,64 @@ func TestHandleScaleAcceptsEmptyString(t *testing.T) {
 	}
 }
 
+func TestHandleSnapshotsListsVolumeSnapshots(t *testing.T) {
+	snap1 := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-a", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-1", SnapshotID: "snap-a"},
+		Status:     storagev1alpha1.SnapshotStatus{Phase: storagev1alpha1.SnapshotPhaseReady, SizeBytes: 1073741824},
+	}
+	snap2 := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-b", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-1", SnapshotID: "snap-b"},
+	}
+	snap3 := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-c", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-2", SnapshotID: "snap-c"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithRuntimeObjects(snap1, snap2, snap3).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/volumes/vol-1/snapshots", nil)
+	req.SetPathValue("name", "vol-1")
+	h.HandleSnapshots(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "snap-a") {
+		t.Fatal("expected snap-a in output")
+	}
+	if !strings.Contains(w.Body.String(), "snap-b") {
+		t.Fatal("expected snap-b in output")
+	}
+	if strings.Contains(w.Body.String(), "snap-c") {
+		t.Fatal("did not expect snap-c for vol-1")
+	}
+}
+
+func TestHandleSnapshotDeleteRemovesSnapshot(t *testing.T) {
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-a", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-1"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithRuntimeObjects(snap).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/volumes/vol-1/snapshots/snap-a/delete", nil)
+	req.SetPathValue("name", "vol-1")
+	req.SetPathValue("snapshot", "snap-a")
+	h.HandleSnapshotDelete(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var list storagev1alpha1.SnapshotList
+	if err := cl.List(context.Background(), &list, client.InNamespace("kdfs")); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 0 {
+		t.Fatal("expected snapshot to be deleted")
+	}
+}
+
 func TestHandleScaleAcceptsInvalidString(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithRuntimeObjects(
 		&storagev1alpha1.Volume{ObjectMeta: metav1.ObjectMeta{Name: "test-vol", Namespace: "kdfs"}},
