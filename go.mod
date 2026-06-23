@@ -22,6 +22,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.24.1
 )
 
+replace github.com/willscott/go-nfs => ./internal/third_party/go-nfs
+
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
