@@ -59,7 +59,7 @@ func TestCreateReplicaUsesNativeSetupAndFormatsLoopDevice(t *testing.T) {
 		t.Fatalf("response = %#v", resp)
 	}
 	want := [][]string{
-		{"mkfs.xfs", "-f", "-s", "size=4096", "/dev/loop7"},
+		{"mkfs.xfs", "-f", "-s", "size=4096", "-m", "crc=0,finobt=0,rmapbt=0,reflink=0", "-i", "nrext64=0,maxpct=25", "-i", "bigtime=0,inobtcount=0", "/dev/loop7"},
 	}
 	if !reflect.DeepEqual(runner.commands, want) {
 		t.Fatalf("commands = %#v", runner.commands)

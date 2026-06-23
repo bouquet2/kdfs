@@ -22,7 +22,7 @@ func TestFormatRunsMkfsXFS(t *testing.T) {
 	if err := Format("/dev/loop7", runner.Run); err != nil {
 		t.Fatal(err)
 	}
-	want := [][]string{{"mkfs.xfs", "-f", "-s", "size=4096", "/dev/loop7"}}
+	want := [][]string{{"mkfs.xfs", "-f", "-s", "size=4096", "-m", "crc=0,finobt=0,rmapbt=0,reflink=0", "-i", "nrext64=0,maxpct=25", "-i", "bigtime=0,inobtcount=0", "/dev/loop7"}}
 	if !reflect.DeepEqual(runner.commands, want) {
 		t.Fatalf("commands = %#v", runner.commands)
 	}
@@ -47,7 +47,7 @@ func TestEnsureMountedFormatsAndRetriesMount(t *testing.T) {
 	if attempts != 2 {
 		t.Fatalf("attempts = %d", attempts)
 	}
-	want := [][]string{{"mkfs.xfs", "-f", "-s", "size=4096", "/dev/nvme0n1"}}
+	want := [][]string{{"mkfs.xfs", "-f", "-s", "size=4096", "-m", "crc=0,finobt=0,rmapbt=0,reflink=0", "-i", "nrext64=0,maxpct=25", "-i", "bigtime=0,inobtcount=0", "/dev/nvme0n1"}}
 	if !reflect.DeepEqual(runner.commands, want) {
 		t.Fatalf("commands = %#v", runner.commands)
 	}
