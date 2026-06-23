@@ -1,0 +1,22 @@
+{{- if .Values.namespace.create -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    {{- with .Values.namespace.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if eq (.Values.namespace.podSecurity.enforce | default "privileged") "custom" }}
+    pod-security.kubernetes.io/enforce: custom
+    pod-security.kubernetes.io/enforce-version: latest
+    {{- if .Values.namespace.podSecurity.customNamespaceSelector }}
+    pod-security.kubernetes.io/enforce-custom: {{ .Values.namespace.podSecurity.customNamespaceSelector | quote }}
+    {{- end }}
+    {{- else }}
+    pod-security.kubernetes.io/enforce: {{ .Values.namespace.podSecurity.enforce | default "privileged" }}
+    pod-security.kubernetes.io/enforce-version: latest
+    {{- end }}
+    pod-security.kubernetes.io/audit: {{ .Values.namespace.podSecurity.audit | default "baseline" }}
+    pod-security.kubernetes.io/warn: {{ .Values.namespace.podSecurity.warn | default "baseline" }}
+{{- end }}

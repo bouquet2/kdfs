@@ -60,3 +60,11 @@ storageClass:
   replicaCount: auto
   allowVolumeExpansion: false
   volumeBindingMode: WaitForFirstConsumer
+
+namespace:
+  create: true
+  name: kdfs
+  podSecurity:
+    enforce: privileged
+    audit: baseline
+    warn: baseline
