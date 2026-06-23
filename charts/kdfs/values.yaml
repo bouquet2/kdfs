@@ -20,6 +20,9 @@ images:
   csiAttacher:
     repository: registry.k8s.io/sig-storage/csi-attacher
     tag: v4.8.1
+  csiSnapshotter:
+    repository: registry.k8s.io/sig-storage/csi-snapshotter
+    tag: v8.2.0
   livenessProbe:
     repository: registry.k8s.io/sig-storage/livenessprobe
     tag: v2.15.0

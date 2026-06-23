@@ -15,6 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const volumeSnapshotNamespaceParam = "csi.storage.k8s.io/volumesnapshot/namespace"
+
 func (d *Driver) CreateSnapshot(ctx context.Context, req *csipb.CreateSnapshotRequest) (*csipb.CreateSnapshotResponse, error) {
 	if req.Name == "" {
 		return nil, fmt.Errorf("snapshot name is required")
@@ -23,19 +25,24 @@ func (d *Driver) CreateSnapshot(ctx context.Context, req *csipb.CreateSnapshotRe
 		return nil, fmt.Errorf("source volume ID is required")
 	}
 
+	internalName := req.Name
+	if snapNS := req.Parameters[volumeSnapshotNamespaceParam]; snapNS != "" {
+		internalName = snapNS + "--" + req.Name
+	}
+
 	snap := &storagev1alpha1.Snapshot{
-		ObjectMeta: metav1.ObjectMeta{Name: req.Name, Namespace: d.Namespace},
-		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: req.SourceVolumeId, SnapshotID: req.Name},
+		ObjectMeta: metav1.ObjectMeta{Name: internalName, Namespace: d.Namespace},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: req.SourceVolumeId, SnapshotID: internalName},
 	}
 	if err := d.Client.Create(ctx, snap); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
-		if err := d.Client.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: d.Namespace}, snap); err != nil {
+		if err := d.Client.Get(ctx, types.NamespacedName{Name: internalName, Namespace: d.Namespace}, snap); err != nil {
 			return nil, err
 		}
 		if snap.Spec.VolumeRef != req.SourceVolumeId {
-			return nil, fmt.Errorf("snapshot %s exists for different volume %s", req.Name, snap.Spec.VolumeRef)
+			return nil, fmt.Errorf("snapshot %s exists for different volume %s", internalName, snap.Spec.VolumeRef)
 		}
 	}
 

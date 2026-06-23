@@ -33,6 +33,15 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /csi
+        - name: csi-snapshotter
+          image: {{ include "kdfs.image" .Values.images.csiSnapshotter }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --leader-election=false
+            - -v=5
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
         - name: livenessprobe
           image: {{ include "kdfs.image" .Values.images.livenessProbe }}
           args:

@@ -1,0 +1,8 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: {{ .Values.storageClass.name | default "kdfs" }}
+  labels:
+    {{- include "kdfs.labels" . | nindent 4 }}
+driver: storage.krea.to
+deletionPolicy: Delete
