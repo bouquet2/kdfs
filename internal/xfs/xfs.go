@@ -7,7 +7,11 @@ import (
 type Runner func(name string, args ...string) ([]byte, error)
 
 func Format(device string, run Runner) error {
-	out, err := run("mkfs.xfs", "-f", "-s", "size=4096", device)
+	out, err := run("mkfs.xfs", "-f", "-s", "size=4096",
+		"-m", "crc=0,finobt=0,rmapbt=0,reflink=0",
+		"-i", "nrext64=0,maxpct=25",
+		"-i", "bigtime=0,inobtcount=0",
+		device)
 	if err != nil {
 		return fmt.Errorf("mkfs.xfs %s failed: %w output=%s", device, err, string(out))
 	}
