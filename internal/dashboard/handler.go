@@ -396,6 +396,159 @@ func (h *Handler) HandleSnapshotDelete(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`<tr><td colspan="5">Deleted</td></tr>`))
 }
 
+func (h *Handler) HandleSnapshotCreate(w http.ResponseWriter, r *http.Request) {
+	volumeName := r.PathValue("name")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	snapshotName := r.FormValue("name")
+	w.Header().Set("Content-Type", "text/html")
+	if snapshotName == "" || len(snapshotName) > maxKubernetesNameLength {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Name is required (max 253 characters)</mark>`))
+		return
+	}
+	if !namePattern.MatchString(snapshotName) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Name must consist of lowercase letters, digits, and hyphens</mark>`))
+		return
+	}
+	volume := &storagev1alpha1.Volume{}
+	if err := h.Client.Get(r.Context(), client.ObjectKey{Name: volumeName, Namespace: h.Namespace}, volume); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Source volume not found: ` + html.EscapeString(err.Error()) + `</mark>`))
+		return
+	}
+	snapshot := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: snapshotName, Namespace: h.Namespace},
+		Spec: storagev1alpha1.SnapshotSpec{
+			VolumeRef:  volumeName,
+			SnapshotID: snapshotName,
+		},
+	}
+	if err := h.Client.Create(r.Context(), snapshot); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`<mark style="color:red">Create failed: ` + html.EscapeString(err.Error()) + `</mark>`))
+		return
+	}
+	w.Header().Set("HX-Redirect", "/volumes/"+volumeName+"/snapshots")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`<mark style="color:green">Snapshot ` + snapshotName + ` created</mark>`))
+}
+
+func (h *Handler) HandleSnapshotCreateFromSnapshot(w http.ResponseWriter, r *http.Request) {
+	volumeName := r.PathValue("name")
+	snapshotName := r.PathValue("snapshot")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	restoreName := r.FormValue("name")
+	w.Header().Set("Content-Type", "text/html")
+	if restoreName == "" || len(restoreName) > maxKubernetesNameLength {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Volume name is required (max 253 characters)</mark>`))
+		return
+	}
+	if !namePattern.MatchString(restoreName) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Volume name must consist of lowercase letters, digits, and hyphens</mark>`))
+		return
+	}
+	if !derivedVolumeNamesFit(restoreName) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Volume name is too long for generated engine, replica, and pod names</mark>`))
+		return
+	}
+	source := &storagev1alpha1.Volume{}
+	if err := h.Client.Get(r.Context(), client.ObjectKey{Name: volumeName, Namespace: h.Namespace}, source); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Source volume not found: ` + html.EscapeString(err.Error()) + `</mark>`))
+		return
+	}
+	snap := &storagev1alpha1.Snapshot{}
+	if err := h.Client.Get(r.Context(), client.ObjectKey{Name: snapshotName, Namespace: h.Namespace}, snap); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Snapshot not found: ` + html.EscapeString(err.Error()) + `</mark>`))
+		return
+	}
+	if !snap.Status.ReadyToUse {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<mark style="color:red">Snapshot is not ready yet</mark>`))
+		return
+	}
+	volume := &storagev1alpha1.Volume{
+		ObjectMeta: metav1.ObjectMeta{Name: restoreName, Namespace: h.Namespace},
+		Spec: storagev1alpha1.VolumeSpec{
+			Size:         source.Spec.Size,
+			NodeID:       snap.Status.EngineNode,
+			ReplicaCount: "1",
+			SnapshotSource: &storagev1alpha1.SnapshotSource{
+				SnapshotName: snapshotName,
+			},
+		},
+	}
+	if err := h.Client.Create(r.Context(), volume); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`<mark style="color:red">Create failed: ` + html.EscapeString(err.Error()) + `</mark>`))
+		return
+	}
+	w.Header().Set("HX-Redirect", "/volumes/"+restoreName)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`<mark style="color:green">Volume ` + restoreName + ` created from snapshot</mark>`))
+}
+
+func (h *Handler) HandleSnapshotRestore(w http.ResponseWriter, r *http.Request) {
+	volumeName := r.PathValue("name")
+	snapshotName := r.PathValue("snapshot")
+	snap := &storagev1alpha1.Snapshot{}
+	if err := h.Client.Get(r.Context(), client.ObjectKey{Name: snapshotName, Namespace: h.Namespace}, snap); err != nil {
+		http.Error(w, "snapshot not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+	if !snap.Status.ReadyToUse {
+		http.Error(w, "snapshot is not ready", http.StatusBadRequest)
+		return
+	}
+	volume := &storagev1alpha1.Volume{}
+	if err := h.Client.Get(r.Context(), client.ObjectKey{Name: volumeName, Namespace: h.Namespace}, volume); err != nil {
+		http.Error(w, "volume not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+	engine := &storagev1alpha1.Engine{}
+	if err := h.Client.Get(r.Context(), client.ObjectKey{Name: names.EngineName(volumeName), Namespace: h.Namespace}, engine); err == nil {
+		if err := h.Client.Delete(r.Context(), engine); err != nil {
+			http.Error(w, "delete engine: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	volume.Status.EngineRef = nil
+	volume.Status.ReplicaHealth = nil
+	volume.Status.Phase = ""
+	volume.Status.Conditions = nil
+	if err := h.Client.Status().Update(r.Context(), volume); err != nil {
+		http.Error(w, "clear volume status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var replicas storagev1alpha1.ReplicaList
+	if err := h.Client.List(r.Context(), &replicas, client.InNamespace(h.Namespace)); err == nil {
+		for i := range replicas.Items {
+			if replicas.Items[i].Spec.VolumeRef.Name == volumeName {
+				_ = h.Client.Delete(r.Context(), &replicas.Items[i])
+			}
+		}
+	}
+	volume.Spec.SnapshotSource = &storagev1alpha1.SnapshotSource{SnapshotName: snapshotName}
+	if err := h.Client.Update(r.Context(), volume); err != nil {
+		http.Error(w, "update volume: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("HX-Redirect", "/volumes/"+volumeName)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`<mark style="color:green">Volume ` + volumeName + ` restoring from snapshot</mark>`))
+}
+
 func (h *Handler) renderEmptyReplicas(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html")
 	if err := Render(w, "replicas", map[string]any{"Replicas": []replicaView{}}); err != nil {

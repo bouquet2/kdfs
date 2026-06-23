@@ -330,3 +330,188 @@ func TestHandleScaleAcceptsInvalidString(t *testing.T) {
 		t.Fatalf("expected status 400, got %d", w.Code)
 	}
 }
+
+func TestHandleSnapshotCreate(t *testing.T) {
+	volume := &storagev1alpha1.Volume{
+		ObjectMeta: metav1.ObjectMeta{Name: "vol-1", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.VolumeSpec{Size: "1Gi"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithStatusSubresource(&storagev1alpha1.Volume{}).WithRuntimeObjects(volume).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/volumes/vol-1/snapshots/create", strings.NewReader(url.Values{
+		"name": {"my-snap"},
+	}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("name", "vol-1")
+	h.HandleSnapshotCreate(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var list storagev1alpha1.SnapshotList
+	if err := cl.List(context.Background(), &list, client.InNamespace("kdfs")); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 1 {
+		t.Fatalf("expected 1 snapshot, got %d", len(list.Items))
+	}
+	if list.Items[0].Spec.VolumeRef != "vol-1" {
+		t.Fatalf("expected volumeRef vol-1, got %q", list.Items[0].Spec.VolumeRef)
+	}
+}
+
+func TestHandleSnapshotCreateRejectsInvalidName(t *testing.T) {
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/volumes/vol-1/snapshots/create", strings.NewReader(url.Values{
+		"name": {"Invalid_Name!"},
+	}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("name", "vol-1")
+	h.HandleSnapshotCreate(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHandleSnapshotCreateFromSnapshot(t *testing.T) {
+	volume := &storagev1alpha1.Volume{
+		ObjectMeta: metav1.ObjectMeta{Name: "vol-1", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.VolumeSpec{Size: "1Gi"},
+	}
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-a", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-1", SnapshotID: "snap-a"},
+		Status:     storagev1alpha1.SnapshotStatus{Phase: storagev1alpha1.SnapshotPhaseReady, ReadyToUse: true, EngineNode: "worker-1"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithStatusSubresource(&storagev1alpha1.Volume{}).WithRuntimeObjects(volume, snap).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/volumes/vol-1/snapshots/snap-a/create-from", strings.NewReader(url.Values{
+		"name": {"vol-1-restored"},
+	}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("name", "vol-1")
+	req.SetPathValue("snapshot", "snap-a")
+	h.HandleSnapshotCreateFromSnapshot(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var list storagev1alpha1.VolumeList
+	if err := cl.List(context.Background(), &list, client.InNamespace("kdfs")); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 2 {
+		t.Fatalf("expected 2 volumes, got %d", len(list.Items))
+	}
+	var restored storagev1alpha1.Volume
+	for _, v := range list.Items {
+		if v.Name == "vol-1-restored" {
+			restored = v
+		}
+	}
+	if restored.Name == "" {
+		t.Fatal("expected vol-1-restored volume to be created")
+	}
+	if restored.Spec.NodeID != "worker-1" {
+		t.Fatalf("expected nodeID worker-1, got %q", restored.Spec.NodeID)
+	}
+	if restored.Spec.SnapshotSource == nil || restored.Spec.SnapshotSource.SnapshotName != "snap-a" {
+		t.Fatalf("expected snapshotSource snap-a, got %+v", restored.Spec.SnapshotSource)
+	}
+}
+
+func TestHandleSnapshotCreateFromSnapshotRejectsNotReady(t *testing.T) {
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-a", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-1"},
+		Status:     storagev1alpha1.SnapshotStatus{Phase: storagev1alpha1.SnapshotPhaseCreating},
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithStatusSubresource(&storagev1alpha1.Volume{}).WithRuntimeObjects(snap).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/volumes/vol-1/snapshots/snap-a/create-from", strings.NewReader(url.Values{
+		"name": {"vol-1-restored"},
+	}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("name", "vol-1")
+	req.SetPathValue("snapshot", "snap-a")
+	h.HandleSnapshotCreateFromSnapshot(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHandleSnapshotRestore(t *testing.T) {
+	volume := &storagev1alpha1.Volume{
+		ObjectMeta: metav1.ObjectMeta{Name: "vol-1", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.VolumeSpec{Size: "1Gi"},
+		Status: storagev1alpha1.VolumeStatus{
+			EngineRef: &storagev1alpha1.NamespacedObjectReference{Name: "vol-1-engine", Namespace: "kdfs"},
+		},
+	}
+	engine := &storagev1alpha1.Engine{
+		ObjectMeta: metav1.ObjectMeta{Name: "vol-1-engine", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.EngineSpec{VolumeRef: storagev1alpha1.LocalObjectReference{Name: "vol-1"}, NodeID: "worker-1"},
+	}
+	replica := &storagev1alpha1.Replica{
+		ObjectMeta: metav1.ObjectMeta{Name: "vol-1-replica-0", Namespace: "kdfs"},
+		Spec: storagev1alpha1.ReplicaSpec{
+			VolumeRef: storagev1alpha1.LocalObjectReference{Name: "vol-1"},
+			NodeID:    "worker-2",
+		},
+	}
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-a", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-1"},
+		Status:     storagev1alpha1.SnapshotStatus{Phase: storagev1alpha1.SnapshotPhaseReady, ReadyToUse: true},
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).
+		WithStatusSubresource(&storagev1alpha1.Volume{}).
+		WithRuntimeObjects(volume, engine, replica, snap).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/volumes/vol-1/snapshots/snap-a/restore", nil)
+	req.SetPathValue("name", "vol-1")
+	req.SetPathValue("snapshot", "snap-a")
+	h.HandleSnapshotRestore(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got storagev1alpha1.Volume
+	if err := cl.Get(context.Background(), client.ObjectKey{Name: "vol-1", Namespace: "kdfs"}, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Spec.SnapshotSource == nil || got.Spec.SnapshotSource.SnapshotName != "snap-a" {
+		t.Fatalf("expected snapshotSource snap-a, got %+v", got.Spec.SnapshotSource)
+	}
+	if got.Status.EngineRef != nil {
+		t.Fatal("expected engineRef to be cleared")
+	}
+	if err := cl.Get(context.Background(), client.ObjectKey{Name: "vol-1-engine", Namespace: "kdfs"}, &storagev1alpha1.Engine{}); err == nil {
+		t.Fatal("expected engine to be deleted")
+	}
+	if err := cl.Get(context.Background(), client.ObjectKey{Name: "vol-1-replica-0", Namespace: "kdfs"}, &storagev1alpha1.Replica{}); err == nil {
+		t.Fatal("expected replica to be deleted")
+	}
+}
+
+func TestHandleSnapshotRestoreRejectsNotReady(t *testing.T) {
+	volume := &storagev1alpha1.Volume{ObjectMeta: metav1.ObjectMeta{Name: "vol-1", Namespace: "kdfs"}}
+	snap := &storagev1alpha1.Snapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap-a", Namespace: "kdfs"},
+		Spec:       storagev1alpha1.SnapshotSpec{VolumeRef: "vol-1"},
+		Status:     storagev1alpha1.SnapshotStatus{Phase: storagev1alpha1.SnapshotPhaseCreating},
+	}
+	cl := fake.NewClientBuilder().WithScheme(testScheme(t)).WithRuntimeObjects(volume, snap).Build()
+	h := &Handler{Client: cl, Namespace: "kdfs"}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/volumes/vol-1/snapshots/snap-a/restore", nil)
+	req.SetPathValue("name", "vol-1")
+	req.SetPathValue("snapshot", "snap-a")
+	h.HandleSnapshotRestore(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}

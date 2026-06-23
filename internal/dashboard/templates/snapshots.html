@@ -1,4 +1,12 @@
 {{define "snapshots"}}
+<form hx-post="/volumes/{{.VolumeName}}/snapshots/create" hx-target="#snapshot-result" hx-swap="innerHTML" style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:1rem">
+  <label style="display:flex;flex-direction:column;font-size:0.85rem">
+    Snapshot name
+    <input type="text" name="name" required pattern="[a-z0-9-]+" placeholder="my-snapshot">
+  </label>
+  <button type="submit">Create Snapshot</button>
+</form>
+<div id="snapshot-result"></div>
 <table>
   <thead>
     <tr>
@@ -17,6 +25,20 @@
       <td>{{if .Status.SizeBytes}}{{.Status.SizeBytes}} B{{else}}-{{end}}</td>
       <td>{{if .Status.CreationTime}}{{ago .Status.CreationTime.Time}}{{else}}-{{end}}</td>
       <td>
+        {{if .Status.ReadyToUse}}
+        <details style="display:inline-block">
+          <summary style="display:inline;cursor:pointer;color:#2a9d8f">Create from snapshot</summary>
+          <form hx-post="/volumes/{{$.VolumeName}}/snapshots/{{.Name}}/create-from"
+                hx-target="#snapshot-result" hx-swap="innerHTML"
+                style="display:flex;gap:0.3rem;align-items:center;margin-top:0.3rem">
+            <input type="text" name="name" required pattern="[a-z0-9-]+" placeholder="new-volume" size="14">
+            <button type="submit" style="padding:0.2rem 0.5rem;font-size:0.8rem">Go</button>
+          </form>
+        </details>
+        <button hx-post="/volumes/{{$.VolumeName}}/snapshots/{{.Name}}/restore"
+                hx-confirm="Restore volume {{$.VolumeName}} from snapshot {{.Name}}? This will overwrite the volume's data."
+                style="background:#e76f51;border-color:#e76f51;padding:0.2rem 0.5rem;font-size:0.8rem">Restore</button>
+        {{end}}
         <button hx-post="/volumes/{{$.VolumeName}}/snapshots/{{.Name}}/delete"
                 hx-confirm="Delete snapshot {{.Name}}?"
                 hx-target="closest tr"

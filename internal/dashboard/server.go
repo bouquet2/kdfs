@@ -21,6 +21,9 @@ func NewMux(cl client.Client, namespace string) http.Handler {
 	mux.HandleFunc("GET /volumes/{name}/delete-form", h.HandleDeleteForm)
 	mux.HandleFunc("POST /volumes/{name}/delete", h.HandleDelete)
 	mux.HandleFunc("GET /volumes/{name}/snapshots", h.HandleSnapshots)
+	mux.HandleFunc("POST /volumes/{name}/snapshots/create", h.HandleSnapshotCreate)
+	mux.HandleFunc("POST /volumes/{name}/snapshots/{snapshot}/create-from", h.HandleSnapshotCreateFromSnapshot)
+	mux.HandleFunc("POST /volumes/{name}/snapshots/{snapshot}/restore", h.HandleSnapshotRestore)
 	mux.HandleFunc("POST /volumes/{name}/snapshots/{snapshot}/delete", h.HandleSnapshotDelete)
 	mux.HandleFunc("POST /volumes/{name}/replicas/{replica}/delete", h.HandleDeleteReplica)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
