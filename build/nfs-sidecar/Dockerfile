@@ -1,6 +1,7 @@
 FROM golang:latest AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
+COPY internal/third_party/ ./internal/third_party/
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/nfs-sidecar ./cmd/nfs-sidecar
