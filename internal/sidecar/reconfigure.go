@@ -50,15 +50,16 @@ func (e *Engine) Reconfigure(ctx context.Context, newReplicas []storagev1alpha1.
 
 	// 1. Get current RAID info to know what's already there
 	info, err := e.client.GetRAIDInfo(ctx, "raid0")
-	if err != nil {
-		return fmt.Errorf("get raid info: %w", err)
-	}
-	baseBdevs, _ := info["base_bdevs_list"].([]any)
 	currentBdevs := make(map[string]bool)
-	for _, b := range baseBdevs {
-		if m, ok := b.(map[string]any); ok {
-			if name, ok := m["name"].(string); ok {
-				currentBdevs[name] = true
+	if err != nil {
+		reconfigureLogger.Warn().Err(err).Msg("get raid info failed, proceeding with empty current set")
+	} else {
+		baseBdevs, _ := info["base_bdevs_list"].([]any)
+		for _, b := range baseBdevs {
+			if m, ok := b.(map[string]any); ok {
+				if name, ok := m["name"].(string); ok {
+					currentBdevs[name] = true
+				}
 			}
 		}
 	}

@@ -240,8 +240,7 @@ func (c *realClient) RemoveBaseBdev(ctx context.Context, raidName, baseBdev stri
 
 func (c *realClient) GetRAIDInfo(ctx context.Context, name string) (map[string]any, error) {
 	resp, err := c.call("bdev_raid_get_bdevs", map[string]any{
-		"name":     name,
-		"category": "all",
+		"name": name,
 	})
 	if err != nil {
 		return nil, err
