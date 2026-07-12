@@ -31,6 +31,8 @@ github.com/warpfork/go-errcat v0.0.0-20180917083543-335044ffc86e/go.mod h1:/qe02
 github.com/warpfork/go-wish v0.0.0-20200122115046-b9ea61034e4a h1:G++j5e0OC488te356JvdhaM8YS6nMsjLAYF7JxCv07w=
 github.com/willscott/go-nfs-client v0.0.0-20240104095149-b44639837b00 h1:U0DnHRZFzoIV1oFEZczg5XyPut9yxk9jjtax/9Bxr/o=
 github.com/willscott/go-nfs-client v0.0.0-20240104095149-b44639837b00/go.mod h1:Tq++Lr/FgiS3X48q5FETemXiSLGuYMQT2sPjYNPJSwA=
+github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886 h1:DtrBtkgTJk2XGt4T7eKdKVkd9A5NCevN2e4inLXtsqA=
+github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886/go.mod h1:Tq++Lr/FgiS3X48q5FETemXiSLGuYMQT2sPjYNPJSwA=
 github.com/willscott/memphis v0.0.0-20241203204924-a148a489d367 h1:A9hsyc7kKeultwdUhS99FVq2S4xT6QVZqOEptPGjHpM=
 github.com/willscott/memphis v0.0.0-20241203204924-a148a489d367/go.mod h1:mAQkn9EwN7WZdbH1DnV+9Nmr3oMjPbG4a0zDM2yI2iA=
 golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 h1:2dVuKD2vS7b0QIHQbpyTISPd0LeHDbnYEryqj5Q1ug8=
