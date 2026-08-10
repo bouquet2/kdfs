@@ -6,7 +6,7 @@ require (
 	github.com/container-storage-interface/spec v1.12.0
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-logr/logr v1.4.3
-	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.41.0
 	github.com/rs/zerolog v1.35.1
 	github.com/spdk/spdk/go/rpc v0.0.0-20260528074804-13da626fd6d9
