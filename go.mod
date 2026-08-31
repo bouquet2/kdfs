@@ -10,7 +10,7 @@ require (
 	github.com/onsi/gomega v1.41.0
 	github.com/rs/zerolog v1.35.1
 	github.com/spdk/spdk/go/rpc v0.0.0-20260528074804-13da626fd6d9
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.1
 	github.com/willscott/go-nfs v0.0.4
 	github.com/willscott/memphis v0.0.0-20241203204924-a148a489d367
 	golang.org/x/sys v0.45.0
@@ -73,7 +73,7 @@ require (
 	github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
