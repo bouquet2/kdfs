@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/container-storage-interface/spec v1.12.0
 	github.com/go-git/go-billy/v5 v5.9.0
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
 	github.com/rs/zerolog v1.35.1
