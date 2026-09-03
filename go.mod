@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/willscott/go-nfs v0.0.4
 	github.com/willscott/memphis v0.0.0-20241203204924-a148a489d367
-	golang.org/x/sys v0.45.0
+	golang.org/x/sys v0.47.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	k8s.io/api v0.36.1
